@@ -2,13 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --usra-primary-blue: #0c5aa9;
+  --usra-dark-navy: #14426f;
+  --usra-deep-navy: #091e30;
+  --usra-light-blue: #45b3da;
+  --usra-pale-blue: #bfdcf3;
+  --usra-gray: #707070;
+}
+
 html,
 body {
   height: 100%;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900;
+  @apply bg-white font-sans text-[#091E30];
 }
 
 ::-webkit-scrollbar {
@@ -16,7 +25,7 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 rounded-full;
+  @apply bg-usra-pale rounded-full;
 }
 ::-webkit-scrollbar-track {
   @apply bg-transparent;

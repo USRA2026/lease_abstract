@@ -54,10 +54,10 @@ export function DocumentViewer({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-usra-deep px-4 py-2">
         <button
           onClick={onClose}
-          className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
+          className="flex items-center gap-1 text-sm font-medium text-slate-200 hover:text-white"
         >
           <ChevronLeft size={16} /> Back to abstract
         </button>
@@ -67,7 +67,7 @@ export function DocumentViewer({
             const next = documents.find((d) => d.id === e.target.value);
             if (next) onDocumentChange(next.id, 1);
           }}
-          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700"
+          className="rounded border border-white/20 bg-usra-deep px-2 py-1 text-xs text-slate-200"
         >
           {documents.map((d) => (
             <option key={d.id} value={d.id}>
@@ -75,8 +75,8 @@ export function DocumentViewer({
             </option>
           ))}
         </select>
-        <div className="flex items-center gap-1 text-xs text-slate-500">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded p-1 hover:bg-slate-100">
+        <div className="flex items-center gap-1 text-xs text-slate-300">
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded p-1 hover:bg-white/10">
             <ChevronLeft size={14} />
           </button>
           <span>
@@ -84,7 +84,7 @@ export function DocumentViewer({
           </span>
           <button
             onClick={() => setPage((p) => Math.min(doc.pageCount, p + 1))}
-            className="rounded p-1 hover:bg-slate-100"
+            className="rounded p-1 hover:bg-white/10"
           >
             <ChevronRight size={14} />
           </button>
@@ -92,21 +92,21 @@ export function DocumentViewer({
         <button
           onClick={onAskAi}
           className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${
-            askAiOpen ? "bg-accent text-white" : "bg-accent/10 text-accent hover:bg-accent/20"
+            askAiOpen ? "bg-usra-primary text-white" : "bg-white/10 text-white hover:bg-white/20"
           }`}
         >
           <Sparkles size={14} /> Ask AI
         </button>
-        <button onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+        <button onClick={onClose} className="rounded p-1 text-slate-300 hover:bg-white/10 hover:text-white">
           <X size={16} />
         </button>
       </div>
       <div className="flex-1 overflow-auto bg-slate-100 p-6">
         {active.snippet && page === active.page && doc.id === active.documentId && (
-          <div className="mx-auto mb-3 max-w-[700px] rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-slate-700 shadow-sm">
-            {active.fieldLabel && <div className="mb-1 font-semibold text-slate-900">{active.fieldLabel}</div>}
+          <div className="mx-auto mb-3 max-w-[700px] rounded-md border border-usra-pale bg-usra-pale/30 p-3 text-xs text-[#091E30] shadow-sm">
+            {active.fieldLabel && <div className="mb-1 font-semibold text-usra-navy">{active.fieldLabel}</div>}
             <div>{active.snippet}</div>
-            {active.label && <div className="mt-1 text-slate-400">{active.label}</div>}
+            {active.label && <div className="mt-1 text-usra-gray">{active.label}</div>}
           </div>
         )}
         <div className="mx-auto w-fit">

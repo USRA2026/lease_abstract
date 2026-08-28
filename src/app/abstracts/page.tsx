@@ -29,10 +29,10 @@ export default async function AbstractsPage({
   return (
     <div className="mx-auto max-w-6xl px-8 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Abstracts</h1>
+        <h1 className="text-2xl font-semibold text-usra-primary">Abstracts</h1>
         <Link
           href="/abstracts/upload"
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-light"
+          className="rounded-md bg-usra-primary px-4 py-2 text-sm font-medium text-white hover:bg-usra-navy"
         >
           Create
         </Link>
@@ -40,37 +40,37 @@ export default async function AbstractsPage({
 
       <form className="mb-5">
         <div className="relative max-w-sm">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-usra-gray" />
           <input
             type="text"
             name="q"
             defaultValue={q}
             placeholder="Search abstracts..."
-            className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-[#091E30] shadow-sm focus:border-usra-primary focus:outline-none focus:ring-1 focus:ring-usra-primary"
           />
         </div>
       </form>
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-usra-navy text-xs uppercase tracking-wide text-white">
             <tr>
-              <th className="px-5 py-3 font-medium">Name</th>
-              <th className="px-5 py-3 font-medium">Abstract Template</th>
-              <th className="px-5 py-3 font-medium">% Complete</th>
-              <th className="px-5 py-3 font-medium">Last Updated</th>
-              <th className="px-5 py-3 font-medium">Asset</th>
+              <th className="px-5 py-3 font-semibold">Name</th>
+              <th className="px-5 py-3 font-semibold">Abstract Template</th>
+              <th className="px-5 py-3 font-semibold">% Complete</th>
+              <th className="px-5 py-3 font-semibold">Last Updated</th>
+              <th className="px-5 py-3 font-semibold">Asset</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {abstracts.map((abstract) => (
-              <tr key={abstract.id} className="hover:bg-slate-50">
+            {abstracts.map((abstract, i) => (
+              <tr key={abstract.id} className={i % 2 === 1 ? "bg-usra-pale/20 hover:bg-usra-pale/40" : "hover:bg-usra-pale/30"}>
                 <td className="px-5 py-3">
-                  <Link href={`/abstracts/${abstract.id}`} className="font-medium text-accent hover:underline">
+                  <Link href={`/abstracts/${abstract.id}`} className="font-medium text-usra-primary hover:underline">
                     {abstract.name}
                   </Link>
                 </td>
-                <td className="px-5 py-3 text-slate-600">{abstract.template.name}</td>
+                <td className="px-5 py-3 text-[#091E30]">{abstract.template.name}</td>
                 <td className="px-5 py-3">
                   <span
                     className={clsx(
@@ -81,14 +81,14 @@ export default async function AbstractsPage({
                     {abstract.percentComplete}
                   </span>
                 </td>
-                <td className="px-5 py-3 text-slate-600">{formatShortDate(abstract.updatedAt)}</td>
+                <td className="px-5 py-3 text-[#091E30]">{formatShortDate(abstract.updatedAt)}</td>
                 <td className="px-5 py-3">
                   {abstract.asset ? (
-                    <Link href={`/assets/${abstract.asset.id}`} className="text-accent hover:underline">
+                    <Link href={`/assets/${abstract.asset.id}`} className="text-usra-primary hover:underline">
                       {abstract.asset.name}
                     </Link>
                   ) : (
-                    <span className="text-slate-400">&mdash;</span>
+                    <span className="text-usra-gray">&mdash;</span>
                   )}
                 </td>
               </tr>
@@ -97,7 +97,7 @@ export default async function AbstractsPage({
         </table>
       </div>
 
-      <div className="mt-3 text-xs text-slate-500">
+      <div className="mt-3 text-xs text-usra-gray">
         {abstracts.length} abstract{abstracts.length === 1 ? "" : "s"}
       </div>
     </div>

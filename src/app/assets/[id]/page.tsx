@@ -15,33 +15,33 @@ export default async function AssetDetailPage({ params }: { params: { id: string
 
   return (
     <div className="mx-auto max-w-4xl px-8 py-8">
-      <div className="mb-2 text-sm text-slate-400">
+      <div className="mb-2 text-sm text-usra-gray">
         <Link href="/assets" className="hover:underline">
           Assets
         </Link>{" "}
-        &gt; <span className="text-slate-600">{asset.name}</span>
+        &gt; <span className="text-[#091E30]">{asset.name}</span>
       </div>
-      <h1 className="mb-6 text-2xl font-semibold text-slate-900">{asset.name}</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-usra-primary">{asset.name}</h1>
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-usra-navy text-xs uppercase tracking-wide text-white">
             <tr>
-              <th className="px-5 py-3 font-medium">Name</th>
-              <th className="px-5 py-3 font-medium">Template</th>
-              <th className="px-5 py-3 font-medium">% Complete</th>
-              <th className="px-5 py-3 font-medium">Last Updated</th>
+              <th className="px-5 py-3 font-semibold">Name</th>
+              <th className="px-5 py-3 font-semibold">Template</th>
+              <th className="px-5 py-3 font-semibold">% Complete</th>
+              <th className="px-5 py-3 font-semibold">Last Updated</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {asset.abstracts.map((a) => (
-              <tr key={a.id} className="hover:bg-slate-50">
+            {asset.abstracts.map((a, i) => (
+              <tr key={a.id} className={i % 2 === 1 ? "bg-usra-pale/20 hover:bg-usra-pale/40" : "hover:bg-usra-pale/30"}>
                 <td className="px-5 py-3">
-                  <Link href={`/abstracts/${a.id}`} className="font-medium text-accent hover:underline">
+                  <Link href={`/abstracts/${a.id}`} className="font-medium text-usra-primary hover:underline">
                     {a.name}
                   </Link>
                 </td>
-                <td className="px-5 py-3 text-slate-600">{a.template.name}</td>
+                <td className="px-5 py-3 text-[#091E30]">{a.template.name}</td>
                 <td className="px-5 py-3">
                   <span
                     className={clsx(
@@ -52,7 +52,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
                     {a.percentComplete}
                   </span>
                 </td>
-                <td className="px-5 py-3 text-slate-600">{formatShortDate(a.updatedAt)}</td>
+                <td className="px-5 py-3 text-[#091E30]">{formatShortDate(a.updatedAt)}</td>
               </tr>
             ))}
           </tbody>

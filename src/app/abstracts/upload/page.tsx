@@ -32,50 +32,50 @@ export default function CreateAbstractPage() {
 
   return (
     <div className="mx-auto max-w-lg px-8 py-10">
-      <h1 className="mb-6 text-2xl font-semibold text-slate-900">Create Abstract</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-usra-primary">Create Abstract</h1>
       <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <div>
-          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Name</label>
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-usra-navy">Name</label>
           <input
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Riverfront Distribution Center Lease"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-usra-primary focus:outline-none focus:ring-1 focus:ring-usra-primary"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Abstract Template</label>
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-usra-navy">Abstract Template</label>
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value as "LEASE" | "LOAN")}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-usra-primary focus:outline-none focus:ring-1 focus:ring-usra-primary"
           >
             <option value="LEASE">Lease</option>
             <option value="LOAN">Loan</option>
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Asset</label>
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-usra-navy">Asset</label>
           <input
             required
             value={assetName}
             onChange={(e) => setAssetName(e.target.value)}
             placeholder="e.g. Riverfront Distribution Center"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-usra-primary focus:outline-none focus:ring-1 focus:ring-usra-primary"
           />
         </div>
-        {error && <div className="text-sm text-rose-600">{error}</div>}
+        {error && <div className="text-sm text-red-700">{error}</div>}
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-light disabled:opacity-50"
+          className="w-full rounded-md bg-usra-primary px-4 py-2 text-sm font-medium text-white hover:bg-usra-navy disabled:opacity-50"
         >
           {busy ? "Creating..." : "Create abstract"}
         </button>
-        <p className="text-xs text-slate-400">
-          You&apos;ll be able to upload the lease or loan PDFs on the next screen &mdash; the AI abstraction pipeline
-          runs automatically on each upload.
+        <p className="text-xs text-usra-gray">
+          You&apos;ll upload the lease or loan PDFs on the next screen. The AI abstraction pipeline runs automatically
+          on each upload.
         </p>
       </form>
     </div>

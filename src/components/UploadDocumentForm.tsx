@@ -31,7 +31,7 @@ export function UploadDocumentForm({ abstractId }: { abstractId: string }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex w-fit cursor-pointer items-center gap-2 rounded-md border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500 hover:border-accent hover:text-accent">
+      <label className="flex w-fit cursor-pointer items-center gap-2 rounded-md border border-dashed border-slate-300 px-3 py-2 text-xs text-usra-gray hover:border-usra-primary hover:text-usra-primary">
         <UploadCloud size={14} />
         {busy ? "Uploading + abstracting..." : "Upload a PDF to abstract"}
         <input
@@ -45,7 +45,7 @@ export function UploadDocumentForm({ abstractId }: { abstractId: string }) {
           }}
         />
       </label>
-      {message && <div className="max-w-md text-xs text-slate-500">{message}</div>}
+      {message && <div className="max-w-md text-xs text-usra-gray">{message}</div>}
     </div>
   );
 }

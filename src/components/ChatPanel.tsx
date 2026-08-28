@@ -61,12 +61,12 @@ export function ChatPanel({
 
   return (
     <div className="flex h-full w-[360px] shrink-0 flex-col border-l border-slate-200 bg-white">
-      <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-800">
-        <Sparkles size={16} className="text-accent" /> Ask AI
+      <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3 text-sm font-semibold text-usra-navy">
+        <Sparkles size={16} className="text-usra-primary" /> Ask AI
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.length === 0 && (
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-usra-gray">
             Ask a question about the tenant, dates, rent, guaranty, or any other term in this abstract&apos;s source
             documents.
           </p>
@@ -76,8 +76,8 @@ export function ChatPanel({
             key={m.id}
             className={
               m.role === "USER"
-                ? "ml-6 rounded-lg bg-accent/10 p-3 text-sm text-slate-800"
-                : "mr-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-800"
+                ? "ml-6 rounded-lg bg-usra-pale/40 p-3 text-sm text-[#091E30]"
+                : "mr-2 rounded-lg bg-slate-50 p-3 text-sm text-[#091E30]"
             }
           >
             <div className="whitespace-pre-wrap">{m.content}</div>
@@ -87,7 +87,7 @@ export function ChatPanel({
                   <button
                     key={c.id}
                     onClick={() => onCitationSelect(c)}
-                    className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-accent ring-1 ring-accent/30 hover:bg-accent hover:text-white"
+                    className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-usra-primary ring-1 ring-usra-primary/30 hover:bg-usra-primary hover:text-white"
                   >
                     {c.label}
                   </button>
@@ -96,7 +96,7 @@ export function ChatPanel({
             )}
           </div>
         ))}
-        {loading && <div className="text-xs text-slate-400">Thinking...</div>}
+        {loading && <div className="text-xs text-usra-gray">Thinking...</div>}
       </div>
       <div className="border-t border-slate-200 p-3">
         <div className="flex items-center gap-2">
@@ -107,17 +107,17 @@ export function ChatPanel({
               if (e.key === "Enter") send();
             }}
             placeholder="Ask a question..."
-            className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-usra-primary focus:outline-none focus:ring-1 focus:ring-usra-primary"
           />
           <button
             onClick={send}
             disabled={loading}
-            className="rounded-md bg-accent p-2 text-white disabled:opacity-50"
+            className="rounded-md bg-usra-primary p-2 text-white disabled:opacity-50"
           >
             <Send size={16} />
           </button>
         </div>
-        <p className="mt-1 text-[11px] text-slate-400">
+        <p className="mt-1 text-[11px] text-usra-gray">
           Ask AI&apos;s answers are based on this abstract and its associated documents. Ask AI can make mistakes.
           Please verify answers.
         </p>
