@@ -1,0 +1,270 @@
+// Lease Abstract — data model
+// Mirrors the field/section structure observed in real exported abstracts
+// (a Lease and a Loan agreement), where every abstracted value carries one
+// or more citations back to a specific document, page, and/or section.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AbstractKind {
+  LEASE
+  LOAN
+}
+
+enum FieldType {
+  TEXT
+  LONG_TEXT
+  CURRENCY
+  PERCENT
+  DATE
+  NUMBER
+}
+
+enum ExtractionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+model Team {
+  id        String     @id @default(cuid())
+  name      String
+  createdAt DateTime   @default(now())
+  users     User[]
+  assets    Asset[]
+  templates Template[]
+  abstracts Abstract[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+/// A real estate investment / property that one or more abstracts roll up to.
+model Asset {
+  id        String     @id @default(cuid())
+  name      String
+  teamId    String
+  team      Team       @relation(fields: [teamId], references: [id])
+  abstracts Abstract[]
+  createdAt DateTime   @default(now())
+
+  @@index([teamId])
+}
+
+/// Defines the shape (sections + fields) of an abstract type, e.g. "Lease" or "Loan".
+model Template {
+  id        String           @id @default(cuid())
+  name      String
+  kind      AbstractKind
+  teamId    String
+  team      Team             @relation(fields: [teamId], references: [id])
+  sections  TemplateSection[]
+  abstracts Abstract[]
+  createdAt DateTime         @default(now())
+
+  @@index([teamId])
+}
+
+model TemplateSection {
+  id         String          @id @default(cuid())
+  templateId String
+  template   Template        @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  name       String
+  order      Int
+  fields     TemplateField[]
+
+  @@index([templateId])
+}
+
+model TemplateField {
+  id        String          @id @default(cuid())
+  sectionId String
+  section   TemplateSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  key       String
+  label     String
+  fieldType FieldType       @default(TEXT)
+  order     Int
+  helpText  String?
+  values    AbstractField[]
+
+  @@index([sectionId])
+  @@unique([sectionId, key])
+}
+
+/// One abstracted contract (a specific lease or loan agreement instance).
+model Abstract {
+  id              String     @id @default(cuid())
+  name            String
+  kind            AbstractKind
+  teamId          String
+  team            Team       @relation(fields: [teamId], references: [id])
+  assetId         String?
+  asset           Asset?     @relation(fields: [assetId], references: [id])
+  templateId      String
+  template        Template   @relation(fields: [templateId], references: [id])
+  percentComplete Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  documents        Document[]
+  fields           AbstractField[]
+  rentScheduleRows RentScheduleRow[]
+  reportingRows    ReportingRequirement[]
+  missingDocuments String?
+  extractionJobs   ExtractionJob[]
+  chatSessions     ChatSession[]
+
+  @@index([teamId])
+  @@index([assetId])
+  @@index([templateId])
+}
+
+/// Source document attached to an abstract (the actual PDF that was abstracted).
+model Document {
+  id           String   @id @default(cuid())
+  abstractId   String
+  abstract     Abstract @relation(fields: [abstractId], references: [id], onDelete: Cascade)
+  fileName     String
+  title        String
+  acronym      String
+  storageKey   String
+  mimeType     String   @default("application/pdf")
+  pageCount    Int      @default(1)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  pages     DocumentPage[]
+  citations Citation[]
+
+  @@index([abstractId])
+}
+
+/// Per-page extracted text + layout, used to render highlight overlays.
+model DocumentPage {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  pageNumber Int
+  text       String   @db.Text
+  /// JSON array of { text, x, y, width, height } in PDF point coordinates (0,0 = top-left)
+  layout     Json
+
+  @@unique([documentId, pageNumber])
+}
+
+/// A single abstracted data point (e.g. "Tenant Name" -> "Amazon.com Services LLC").
+model AbstractField {
+  id              String        @id @default(cuid())
+  abstractId      String
+  abstract        Abstract      @relation(fields: [abstractId], references: [id], onDelete: Cascade)
+  templateFieldId String
+  templateField   TemplateField @relation(fields: [templateFieldId], references: [id])
+  value           String        @db.Text
+  confidence      Float?
+  citations       Citation[]
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([abstractId, templateFieldId])
+  @@index([abstractId])
+}
+
+/// Links an abstracted value (or a chat answer) to the exact place it came from.
+model Citation {
+  id              String         @id @default(cuid())
+  documentId      String
+  document        Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  abstractFieldId String?
+  abstractField   AbstractField? @relation(fields: [abstractFieldId], references: [id], onDelete: Cascade)
+  chatMessageId   String?
+  chatMessage     ChatMessage?   @relation(fields: [chatMessageId], references: [id], onDelete: Cascade)
+  page            Int
+  sectionRef      String?
+  label           String
+  snippet         String         @db.Text
+  /// JSON array of { x, y, width, height } highlight rectangles on the page (PDF points)
+  highlightRects  Json
+
+  @@index([documentId])
+  @@index([abstractFieldId])
+  @@index([chatMessageId])
+}
+
+model RentScheduleRow {
+  id             String   @id @default(cuid())
+  abstractId     String
+  abstract       Abstract @relation(fields: [abstractId], references: [id], onDelete: Cascade)
+  startDate      DateTime
+  endDate        DateTime
+  monthlyRent    String
+  percentIncrease String?
+  sourceDocument String
+  order          Int
+
+  @@index([abstractId])
+}
+
+model ReportingRequirement {
+  id         String   @id @default(cuid())
+  abstractId String
+  abstract   Abstract @relation(fields: [abstractId], references: [id], onDelete: Cascade)
+  item       String
+  frequency  String
+  dueBy      String
+  order      Int
+
+  @@index([abstractId])
+}
+
+model ExtractionJob {
+  id          String           @id @default(cuid())
+  abstractId  String
+  abstract    Abstract         @relation(fields: [abstractId], references: [id], onDelete: Cascade)
+  status      ExtractionStatus @default(PENDING)
+  provider    String
+  fieldsFound Int              @default(0)
+  error       String?
+  startedAt   DateTime         @default(now())
+  completedAt DateTime?
+
+  @@index([abstractId])
+}
+
+model ChatSession {
+  id         String        @id @default(cuid())
+  abstractId String
+  abstract   Abstract      @relation(fields: [abstractId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+  messages   ChatMessage[]
+
+  @@index([abstractId])
+}
+
+model ChatMessage {
+  id            String      @id @default(cuid())
+  chatSessionId String
+  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  role          ChatRole
+  content       String      @db.Text
+  citations     Citation[]
+  createdAt     DateTime    @default(now())
+
+  @@index([chatSessionId])
+}
