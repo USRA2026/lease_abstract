@@ -33,13 +33,15 @@ export function DocumentViewer({
   onClose,
   onAskAi,
   askAiOpen,
+  backLabel = "Back to abstract",
 }: {
   documents: ViewerDocument[];
   active: ActiveCitation;
   onDocumentChange: (documentId: string, page: number) => void;
   onClose: () => void;
-  onAskAi: () => void;
-  askAiOpen: boolean;
+  onAskAi?: () => void;
+  askAiOpen?: boolean;
+  backLabel?: string;
 }) {
   const doc = documents.find((d) => d.id === active.documentId) ?? documents[0];
   const [page, setPage] = useState(active.page);
@@ -59,7 +61,7 @@ export function DocumentViewer({
           onClick={onClose}
           className="flex items-center gap-1 text-sm font-medium text-slate-200 hover:text-white"
         >
-          <ChevronLeft size={16} /> Back to abstract
+          <ChevronLeft size={16} /> {backLabel}
         </button>
         <select
           value={doc.id}
@@ -89,14 +91,16 @@ export function DocumentViewer({
             <ChevronRight size={14} />
           </button>
         </div>
-        <button
-          onClick={onAskAi}
-          className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${
-            askAiOpen ? "bg-usra-primary text-white" : "bg-white/10 text-white hover:bg-white/20"
-          }`}
-        >
-          <Sparkles size={14} /> Ask AI
-        </button>
+        {onAskAi && (
+          <button
+            onClick={onAskAi}
+            className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${
+              askAiOpen ? "bg-usra-primary text-white" : "bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            <Sparkles size={14} /> Ask AI
+          </button>
+        )}
         <button onClick={onClose} className="rounded p-1 text-slate-300 hover:bg-white/10 hover:text-white">
           <X size={16} />
         </button>

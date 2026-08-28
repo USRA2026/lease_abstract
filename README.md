@@ -26,6 +26,17 @@ Built as a self-hosted alternative to abstractcre.com, deployable to Azure.
   it can find and citing its source.
 - **Lease** and **Loan** templates, each with the full section/field schema
   abstracted from real exported abstracts (see `src/lib/templates/`).
+- **Assets + Funds** — every document is attached to an asset (directly, or
+  through the abstract it was abstracted for), and every asset optionally
+  rolls up to a fund/portfolio. The asset detail page lists every document
+  attached to it, regardless of which abstract (if any) it belongs to, and
+  supports uploading general documents (surveys, title policies, insurance
+  certificates) independent of any abstraction workflow. The assets list is
+  filterable by fund, and a Funds page gives a quick portfolio-level view.
+- **Export** — every abstract exports to Excel, Word, or PDF, each built
+  with the USRA brand palette/typography, from the same normalized data the
+  detail page renders (`lib/abstracts/getAbstractDetail.ts`) so exports
+  never drift from what's on screen.
 
 ## Architecture
 
@@ -107,6 +118,8 @@ src/lib/pdf/locate.ts         Maps a quoted snippet back to a highlight rect
 src/lib/extraction/pipeline.ts  AI abstraction pipeline (upload → fields)
 src/lib/chat/rag.ts           Ask AI retrieval + citation resolution
 src/lib/templates/            Lease/Loan section+field schemas + seed data
+src/lib/abstracts/getAbstractDetail.ts  Normalized abstract data (page + exports)
+src/lib/export/{xlsx,docx,pdf}.ts        Excel/Word/PDF export generators
 prisma/schema.prisma           Data model
 prisma/seed.ts                 Seed script (also generates the demo PDFs)
 infra/main.bicep                Azure infrastructure

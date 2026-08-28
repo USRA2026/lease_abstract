@@ -56,7 +56,7 @@ const CHAR_REPLACEMENTS: Record<string, string> = {
 };
 
 /** Standard PDF fonts only support WinAnsi (roughly Latin-1); swap out or drop anything else. */
-function sanitizeForPdf(text: string): string {
+export function sanitizeForPdf(text: string): string {
   const replaced = text.replace(/[≠≤≥×÷→–—‘’“”…•]/g, (ch) => CHAR_REPLACEMENTS[ch] ?? ch);
   return Array.from(replaced)
     .map((ch) => (ch.charCodeAt(0) <= 0xff ? ch : "?"))

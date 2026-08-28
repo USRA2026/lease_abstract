@@ -1,6 +1,7 @@
 import { PrismaClient, type FieldType } from "@prisma/client";
 import { PdfWriter } from "../src/lib/pdf/writer";
 import { getStorageDriver } from "../src/lib/storage";
+import { slugify } from "../src/lib/slugify";
 import { arugulaLoan } from "../src/lib/templates/arugula-loan";
 import { orlandoGardenLease } from "../src/lib/templates/orlando-garden-lease";
 import { amazonCantonLease } from "../src/lib/templates/amazon-canton-lease";
@@ -8,10 +9,6 @@ import type { SeedAbstract, SeedSection } from "../src/lib/templates/types";
 
 const db = new PrismaClient();
 const storage = getStorageDriver();
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
 
 async function resetDatabase() {
   await db.citation.deleteMany();
@@ -28,8 +25,43 @@ async function resetDatabase() {
   await db.templateSection.deleteMany();
   await db.template.deleteMany();
   await db.asset.deleteMany();
+  await db.fund.deleteMany();
   await db.user.deleteMany();
   await db.team.deleteMany();
+}
+
+/// Which fund/portfolio each demo asset rolls up to.
+const ASSET_FUNDS: Record<string, string> = {
+  "Orlando Garden Property": "USRA Net Lease Fund I",
+  "Amazon Last Mile": "USRA Net Lease Fund I",
+  ADJ: "USRA Net Lease Fund I",
+  "Arugula Property": "USRA Net Lease Fund II",
+  "Boston Creek BTS": "USRA Net Lease Fund II",
+  "Burns & McDonnell": "USRA Net Lease Fund II",
+  "Albertsons Chicago": "USRA Credit Strategies Fund",
+};
+
+async function getOrCreateFund(teamId: string, name: string, fundIdByName: Map<string, string>): Promise<string> {
+  const cached = fundIdByName.get(name);
+  if (cached) return cached;
+  const fund = await db.fund.create({ data: { name, teamId } });
+  fundIdByName.set(name, fund.id);
+  return fund.id;
+}
+
+async function getOrCreateAsset(
+  teamId: string,
+  name: string,
+  assetIdByName: Map<string, string>,
+  fundIdByName: Map<string, string>
+): Promise<string> {
+  const cached = assetIdByName.get(name);
+  if (cached) return cached;
+  const fundName = ASSET_FUNDS[name];
+  const fundId = fundName ? await getOrCreateFund(teamId, fundName, fundIdByName) : undefined;
+  const asset = await db.asset.create({ data: { name, teamId, fundId } });
+  assetIdByName.set(name, asset.id);
+  return asset.id;
 }
 
 async function buildTemplate(teamId: string, name: string, kind: "LEASE" | "LOAN", sections: SeedSection[]) {
@@ -124,14 +156,10 @@ async function seedAbstract(
   templateId: string,
   fieldIdByKey: Map<string, string>,
   totalFields: number,
-  assetIdByName: Map<string, string>
+  assetIdByName: Map<string, string>,
+  fundIdByName: Map<string, string>
 ) {
-  let assetId = assetIdByName.get(seed.assetName);
-  if (!assetId) {
-    const asset = await db.asset.create({ data: { name: seed.assetName, teamId } });
-    assetId = asset.id;
-    assetIdByName.set(seed.assetName, assetId);
-  }
+  const assetId = await getOrCreateAsset(teamId, seed.assetName, assetIdByName, fundIdByName);
 
   const filledFieldCount = seed.sections.reduce((sum, s) => sum + s.fields.length, 0);
   const percentComplete = totalFields ? Math.round((filledFieldCount / totalFields) * 100) : 0;
@@ -162,6 +190,7 @@ async function seedAbstract(
 
     const document = await db.document.create({
       data: {
+        assetId,
         abstractId: abstract.id,
         fileName: docSpec.fileName,
         title: docSpec.title,
@@ -286,15 +315,11 @@ async function seedLightweightAbstracts(
   teamId: string,
   leaseTemplateId: string,
   loanTemplateId: string,
-  assetIdByName: Map<string, string>
+  assetIdByName: Map<string, string>,
+  fundIdByName: Map<string, string>
 ) {
   for (const entry of LIGHTWEIGHT_ABSTRACTS) {
-    let assetId = assetIdByName.get(entry.assetName);
-    if (!assetId) {
-      const asset = await db.asset.create({ data: { name: entry.assetName, teamId } });
-      assetId = asset.id;
-      assetIdByName.set(entry.assetName, assetId);
-    }
+    const assetId = await getOrCreateAsset(teamId, entry.assetName, assetIdByName, fundIdByName);
 
     const abstract = await db.abstract.create({
       data: {
@@ -331,18 +356,19 @@ async function main() {
   const loanTemplate = await buildTemplate(team.id, "Loan", "LOAN", arugulaLoan.sections);
 
   const assetIdByName = new Map<string, string>();
+  const fundIdByName = new Map<string, string>();
 
   console.log("Seeding Arugula Property LLC Loan (full abstract + generated LDOTSA PDF)...");
-  await seedAbstract(arugulaLoan, team.id, loanTemplate.template.id, loanTemplate.fieldIdByKey, loanTemplate.totalFields, assetIdByName);
+  await seedAbstract(arugulaLoan, team.id, loanTemplate.template.id, loanTemplate.fieldIdByKey, loanTemplate.totalFields, assetIdByName, fundIdByName);
 
   console.log("Seeding Orlando Garden Property Lease (full abstract + generated BL/1A PDFs)...");
-  await seedAbstract(orlandoGardenLease, team.id, leaseTemplate.template.id, leaseTemplate.fieldIdByKey, leaseTemplate.totalFields, assetIdByName);
+  await seedAbstract(orlandoGardenLease, team.id, leaseTemplate.template.id, leaseTemplate.fieldIdByKey, leaseTemplate.totalFields, assetIdByName, fundIdByName);
 
   console.log("Seeding Amazon (Canton ECommerce) Lease (partial abstract, matches the reference screenshots)...");
-  await seedAbstract(amazonCantonLease, team.id, leaseTemplate.template.id, leaseTemplate.fieldIdByKey, leaseTemplate.totalFields, assetIdByName);
+  await seedAbstract(amazonCantonLease, team.id, leaseTemplate.template.id, leaseTemplate.fieldIdByKey, leaseTemplate.totalFields, assetIdByName, fundIdByName);
 
   console.log("Seeding lightweight grid rows...");
-  await seedLightweightAbstracts(team.id, leaseTemplate.template.id, loanTemplate.template.id, assetIdByName);
+  await seedLightweightAbstracts(team.id, leaseTemplate.template.id, loanTemplate.template.id, assetIdByName, fundIdByName);
 
   console.log("Done.");
 }

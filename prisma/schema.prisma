@@ -44,6 +44,7 @@ model Team {
   createdAt DateTime   @default(now())
   users     User[]
   assets    Asset[]
+  funds     Fund[]
   templates Template[]
   abstracts Abstract[]
 }
@@ -57,16 +58,33 @@ model User {
   createdAt DateTime @default(now())
 }
 
+/// An investment vehicle (fund or portfolio) that groups assets, e.g. "USRA
+/// Net Lease Fund I". Assets can be filtered by fund throughout the app.
+model Fund {
+  id        String   @id @default(cuid())
+  name      String
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id])
+  assets    Asset[]
+  createdAt DateTime @default(now())
+
+  @@index([teamId])
+}
+
 /// A real estate investment / property that one or more abstracts roll up to.
 model Asset {
   id        String     @id @default(cuid())
   name      String
   teamId    String
   team      Team       @relation(fields: [teamId], references: [id])
+  fundId    String?
+  fund      Fund?      @relation(fields: [fundId], references: [id])
   abstracts Abstract[]
+  documents Document[]
   createdAt DateTime   @default(now())
 
   @@index([teamId])
+  @@index([fundId])
 }
 
 /// Defines the shape (sections + fields) of an abstract type, e.g. "Lease" or "Loan".
@@ -137,23 +155,30 @@ model Abstract {
   @@index([templateId])
 }
 
-/// Source document attached to an abstract (the actual PDF that was abstracted).
+/// A source document. Always attached to an asset; optionally also attached
+/// to one specific abstract (the lease/loan instance it was abstracted for).
+/// A document with no abstractId is a general asset-level document (survey,
+/// title policy, insurance certificate, ...) uploaded independent of any
+/// abstraction workflow.
 model Document {
-  id           String   @id @default(cuid())
-  abstractId   String
-  abstract     Abstract @relation(fields: [abstractId], references: [id], onDelete: Cascade)
+  id           String    @id @default(cuid())
+  assetId      String
+  asset        Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  abstractId   String?
+  abstract     Abstract? @relation(fields: [abstractId], references: [id], onDelete: Cascade)
   fileName     String
   title        String
   acronym      String
   storageKey   String
-  mimeType     String   @default("application/pdf")
-  pageCount    Int      @default(1)
-  order        Int      @default(0)
-  createdAt    DateTime @default(now())
+  mimeType     String    @default("application/pdf")
+  pageCount    Int       @default(1)
+  order        Int       @default(0)
+  createdAt    DateTime  @default(now())
 
   pages     DocumentPage[]
   citations Citation[]
 
+  @@index([assetId])
   @@index([abstractId])
 }
 

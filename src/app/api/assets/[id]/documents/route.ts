@@ -2,17 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getStorageDriver } from "@/lib/storage";
 import { extractDocumentText } from "@/lib/pdf/reader";
-import { runExtraction } from "@/lib/extraction/pipeline";
 
 export const runtime = "nodejs";
 
+/**
+ * Uploads a document directly to an asset, independent of any abstract
+ * (e.g. a survey, title policy, or insurance certificate). No AI
+ * abstraction pipeline runs here since there's no template to fill in;
+ * the text is still extracted and stored so the document is viewable and
+ * searchable like any other.
+ */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const abstract = await db.abstract.findUnique({ where: { id: params.id }, include: { documents: true } });
-  if (!abstract) {
-    return NextResponse.json({ error: "Abstract not found" }, { status: 404 });
-  }
-  if (!abstract.assetId) {
-    return NextResponse.json({ error: "Assign this abstract to an asset before uploading documents" }, { status: 400 });
+  const asset = await db.asset.findUnique({ where: { id: params.id }, include: { documents: true } });
+  if (!asset) {
+    return NextResponse.json({ error: "Asset not found" }, { status: 404 });
   }
 
   const form = await req.formData();
@@ -26,25 +29,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const title = (form.get("title") as string) || file.name.replace(/\.pdf$/i, "");
   const requestedAcronym = (form.get("acronym") as string)?.trim().toUpperCase();
-  const acronym = requestedAcronym || `U${abstract.documents.length + 1}`;
+  const acronym = requestedAcronym || `A${asset.documents.length + 1}`;
 
   const bytes = Buffer.from(await file.arrayBuffer());
   const extracted = await extractDocumentText(bytes);
 
   const storage = getStorageDriver();
-  const storageKey = `uploads/${abstract.id}/${Date.now()}-${file.name}`;
+  const storageKey = `uploads/asset-${asset.id}/${Date.now()}-${file.name}`;
   await storage.put(storageKey, bytes, "application/pdf");
 
   const document = await db.document.create({
     data: {
-      assetId: abstract.assetId,
-      abstractId: abstract.id,
+      assetId: asset.id,
       fileName: file.name,
       title,
       acronym,
       storageKey,
       pageCount: extracted.pageCount,
-      order: abstract.documents.length,
+      order: asset.documents.length,
     },
   });
 
@@ -59,12 +61,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     });
   }
 
-  let extraction: { fieldsFound: number; provider: string } | null = null;
-  try {
-    extraction = await runExtraction(abstract.id, [document.id]);
-  } catch (err) {
-    console.error("Extraction failed after upload", err);
-  }
-
-  return NextResponse.json({ document: { id: document.id, title, acronym, pageCount: extracted.pageCount }, extraction });
+  return NextResponse.json({ document: { id: document.id, title, acronym, pageCount: extracted.pageCount } });
 }

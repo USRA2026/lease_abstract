@@ -26,6 +26,10 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# Next's standalone output tracing misses pdfjs-dist's legacy worker file
+# (it's loaded via a dynamic import in lib/pdf/reader.ts), so copy the
+# whole package explicitly rather than relying on trace detection.
+COPY --from=builder /app/node_modules/pdfjs-dist ./node_modules/pdfjs-dist
 
 USER nextjs
 EXPOSE 3000

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import clsx from "clsx";
 import { CitationPill } from "./CitationPill";
+import { ExportMenu } from "./ExportMenu";
 import { UploadDocumentForm } from "./UploadDocumentForm";
 import { DocumentViewer, type ActiveCitation } from "./DocumentViewer";
 import { ChatPanel, type ChatCitation } from "./ChatPanel";
@@ -136,12 +137,15 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
 
       <div className="mb-6 flex items-start justify-between">
         <h1 className="text-2xl font-semibold text-usra-primary">{props.name}</h1>
-        <button
-          onClick={openAskAi}
-          className="flex items-center gap-2 rounded-md bg-usra-primary px-4 py-2 text-sm font-medium text-white hover:bg-usra-navy"
-        >
-          <Sparkles size={16} /> Ask AI
-        </button>
+        <div className="flex items-center gap-3">
+          <ExportMenu abstractId={props.abstractId} />
+          <button
+            onClick={openAskAi}
+            className="flex items-center gap-2 rounded-md bg-usra-primary px-4 py-2 text-sm font-medium text-white hover:bg-usra-navy"
+          >
+            <Sparkles size={16} /> Ask AI
+          </button>
+        </div>
       </div>
 
       <div className="mb-8 grid grid-cols-4 gap-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -164,7 +168,7 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
       <section className="mb-8">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-usra-navy">Documents</h2>
-          <UploadDocumentForm abstractId={props.abstractId} />
+          <UploadDocumentForm uploadUrl={`/api/abstracts/${props.abstractId}/upload`} />
         </div>
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
