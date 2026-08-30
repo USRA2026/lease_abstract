@@ -47,8 +47,9 @@ Next.js 14 (App Router, TypeScript, Tailwind)
 ├─ Storage driver             — local filesystem (dev) or Azure Blob Storage
 │                                (prod), behind one interface (lib/storage)
 └─ AI provider                — deterministic mock (dev, zero external
-                                 calls) or Azure OpenAI (prod), behind one
-                                 interface (lib/ai) for both:
+                                 calls), Azure OpenAI, or the Claude API
+                                 (Anthropic) — all behind one interface
+                                 (lib/ai) for both:
                                    • field extraction (the abstraction pipeline)
                                    • Q&A chat (retrieval over document pages)
 ```
@@ -84,8 +85,11 @@ npm run dev
 Open http://localhost:3000. By default `AI_PROVIDER=mock` and
 `STORAGE_DRIVER=local` — the whole app runs with zero external
 dependencies. Flip `.env` to `AI_PROVIDER=azure` (with `AZURE_OPENAI_*` set)
-and/or `STORAGE_DRIVER=azure` (with `AZURE_STORAGE_*` set) to use the real
-Azure-backed implementations instead; nothing else in the app changes.
+or `AI_PROVIDER=claude` (with `ANTHROPIC_API_KEY` set — get one from
+[console.anthropic.com](https://console.anthropic.com/settings/keys)) for
+real AI abstraction/chat, and/or `STORAGE_DRIVER=azure` (with
+`AZURE_STORAGE_*` set) for real document storage; nothing else in the app
+changes.
 
 ### Showcase data
 
@@ -110,7 +114,7 @@ src/app/                    Next.js routes (pages + API routes)
 src/components/             UI: grid, detail view, PDF viewer, chat panel
 src/lib/db.ts                Prisma client
 src/lib/storage/             StorageDriver interface (local | azure)
-src/lib/ai/                  AiProvider interface (mock | azure-openai)
+src/lib/ai/                  AiProvider interface (mock | azure-openai | claude)
 src/lib/pdf/writer.ts        Builds the synthetic showcase PDFs + records
                               exact per-line bounding boxes as it draws them
 src/lib/pdf/reader.ts         Extracts text from arbitrary uploaded PDFs

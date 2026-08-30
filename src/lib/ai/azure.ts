@@ -1,17 +1,5 @@
 import type { AiChatResult, AiDocumentInput, AiExtractedField, AiProvider, AiTemplateFieldSpec } from "./types";
-
-function buildDocumentContext(documents: AiDocumentInput[], maxCharsPerPage = 3000): string {
-  return documents
-    .map((doc) =>
-      doc.pages
-        .map(
-          (page) =>
-            `### Document "${doc.title}" (acronym: ${doc.acronym}, documentId: ${doc.documentId}), page ${page.pageNumber}\n${page.text.slice(0, maxCharsPerPage)}`
-        )
-        .join("\n\n")
-    )
-    .join("\n\n");
-}
+import { buildDocumentContext } from "./context";
 
 function extractJson<T>(raw: string): T | null {
   const match = raw.match(/\{[\s\S]*\}|\[[\s\S]*\]/);

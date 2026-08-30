@@ -64,6 +64,22 @@ param openAiChatDeploymentSku string = 'GlobalStandard'
 @description('Deploy an Azure AI Document Intelligence account for layout/OCR extraction with bounding boxes.')
 param deployDocumentIntelligence bool = true
 
+@description('''Which AI backend the app uses at runtime: "azure" (Azure OpenAI,
+provisioned by this template either way) or "claude" (the Claude API/Anthropic
+directly). Only meaningful when anthropicApiKey is also supplied for "claude".''')
+@allowed(['azure', 'claude'])
+param aiProvider string = 'azure'
+
+@secure()
+@description('''Anthropic API key, if using Claude as the AI provider instead of (or
+alongside) Azure OpenAI. Leave blank to skip provisioning this — the app
+falls back to Azure OpenAI or the mock provider. Get a key from
+https://console.anthropic.com/settings/keys.''')
+param anthropicApiKey string = ''
+
+@description('Anthropic model ID for the chat/extraction calls, when anthropicApiKey is set.')
+param anthropicModel string = 'claude-opus-5'
+
 var uniqueSuffix = uniqueString(resourceGroup().id)
 var resourceName = '${namePrefix}${uniqueSuffix}'
 var storageAccountName = toLower(substring('${namePrefix}st${uniqueSuffix}', 0, min(24, length('${namePrefix}st${uniqueSuffix}'))))
@@ -244,6 +260,14 @@ resource openAiKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   }
 }
 
+resource anthropicKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(anthropicApiKey)) {
+  parent: keyVault
+  name: 'ANTHROPIC-API-KEY'
+  properties: {
+    value: anthropicApiKey
+  }
+}
+
 // ---------------------------------------------------------------------------
 // App Service (the Next.js application)
 // ---------------------------------------------------------------------------
@@ -281,7 +305,7 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'AZURE_STORAGE_CONNECTION_STRING'
           value: '@Microsoft.KeyVault(SecretUri=${storageConnectionStringSecret.properties.secretUri})'
         }
-        { name: 'AI_PROVIDER', value: 'azure' }
+        { name: 'AI_PROVIDER', value: aiProvider }
         { name: 'AZURE_OPENAI_ENDPOINT', value: openAi.properties.endpoint }
         { name: 'AZURE_OPENAI_API_KEY', value: '@Microsoft.KeyVault(SecretUri=${openAiKeySecret.properties.secretUri})' }
         { name: 'AZURE_OPENAI_DEPLOYMENT_CHAT', value: openAiChatDeployment }
@@ -290,6 +314,11 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT'
           value: deployDocumentIntelligence ? documentIntelligence.properties.endpoint : ''
         }
+        {
+          name: 'ANTHROPIC_API_KEY'
+          value: !empty(anthropicApiKey) ? '@Microsoft.KeyVault(SecretUri=${anthropicKeySecret.properties.secretUri})' : ''
+        }
+        { name: 'ANTHROPIC_MODEL', value: anthropicModel }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
         { name: 'WEBSITES_PORT', value: '3000' }
       ]

@@ -9,14 +9,36 @@ This provisions everything the app needs beyond the code itself:
 | Storage Account (Blob) | Source PDF documents |
 | Azure OpenAI (`gpt-4o` deployment) | AI abstraction extraction + Ask AI chat |
 | Azure AI Document Intelligence *(optional)* | Layout/OCR with bounding boxes for uploaded PDFs |
-| Key Vault | DB connection string, storage key, OpenAI key |
+| Key Vault | DB connection string, storage key, OpenAI/Anthropic key |
 | Log Analytics + Application Insights | Logs/metrics |
 
 The app itself never has direct knowledge it's "on Azure" — it only reads
-`STORAGE_DRIVER`, `AI_PROVIDER`, `DATABASE_URL`, and the `AZURE_*` env vars
-(see `.env.example`). Locally those default to `local`/`mock` with zero
-external dependencies; this deployment flips them to the Azure-backed
-implementations.
+`STORAGE_DRIVER`, `AI_PROVIDER`, `DATABASE_URL`, and the `AZURE_*`/`ANTHROPIC_*`
+env vars (see `.env.example`). Locally those default to `local`/`mock` with
+zero external dependencies; this deployment flips them to the Azure-backed
+(or Claude-backed) implementations.
+
+**Using Claude instead of Azure OpenAI:** the app supports the Claude API
+(Anthropic) as an alternative AI provider (`lib/ai/anthropic.ts`) — it uses
+structured outputs so extraction/chat responses are schema-validated rather
+than parsed out of free text. The Bicep template always provisions Azure
+OpenAI (Document Intelligence depends on the same Cognitive Services
+resource group pattern), but you can point the app at Claude instead by
+also passing an Anthropic API key at deploy time:
+
+```bash
+az deployment group create \
+  --resource-group rg-lease-abstract \
+  --template-file infra/main.bicep \
+  --parameters infra/main.parameters.json \
+  --parameters aiProvider=claude anthropicApiKey=<your-sk-ant-key> anthropicModel=claude-opus-5
+```
+
+That stores the key in Key Vault (never in an app setting or source
+control) and sets `AI_PROVIDER=claude`. Get a key from
+[console.anthropic.com](https://console.anthropic.com/settings/keys). You
+can flip `AI_PROVIDER` back to `azure` any time by updating just that one
+app setting — both providers stay configured side by side.
 
 ## Prerequisites
 
@@ -104,7 +126,7 @@ npm run db:seed             # optional: loads the two showcase abstracts
 az webapp browse --resource-group rg-lease-abstract --name <webAppName>
 ```
 
-Check **Settings → AI & Storage** in the app itself — it should read `azure`/`azure` once the deployment's app settings are wired (they are, by default, from step 1).
+Check **Settings → AI & Storage** in the app itself — it should read `azure`/`azure` (or `claude`/`azure` if you set `aiProvider=claude`) once the deployment's app settings are wired (they are, by default, from step 1).
 
 ## Notes & follow-ups
 
