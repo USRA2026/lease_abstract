@@ -48,6 +48,12 @@ if you need to look it up). Pass the chosen value as
 --parameters openAiChatModelVersion=<version>.''')
 param openAiChatModelVersion string
 
+@description('''Capacity (in thousands of tokens/minute) for the chat deployment.
+Check the MaxCapacity column from the list-models command above for this
+model/region/subscription before raising this — a value above what your
+subscription allows will fail the deployment the same way a bad quota did.''')
+param openAiChatCapacity int = 1
+
 @description('Deploy an Azure AI Document Intelligence account for layout/OCR extraction with bounding boxes.')
 param deployDocumentIntelligence bool = true
 
@@ -164,7 +170,7 @@ resource openAiChatModel 'Microsoft.CognitiveServices/accounts/deployments@2023-
   name: openAiChatDeployment
   sku: {
     name: 'Standard'
-    capacity: 10
+    capacity: openAiChatCapacity
   }
   properties: {
     model: {

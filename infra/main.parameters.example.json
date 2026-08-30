@@ -9,6 +9,7 @@
     "openAiSku": { "value": "S0" },
     "openAiChatDeployment": { "value": "gpt-4o" },
     "openAiChatModelVersion": { "value": "REPLACE_WITH_A_CURRENTLY_AVAILABLE_VERSION" },
+    "openAiChatCapacity": { "value": 1 },
     "deployDocumentIntelligence": { "value": true }
   }
 }
