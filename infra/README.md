@@ -32,13 +32,41 @@ az group create --name rg-lease-abstract --location eastus2
 
 cp infra/main.parameters.example.json infra/main.parameters.json
 # edit infra/main.parameters.json: set a strong postgresAdminPassword
+```
 
+Azure OpenAI model versions are retired on a rolling basis, so there's no
+safe value to hardcode for `openAiChatModelVersion` — look up what's
+currently available for your subscription/region before deploying. If the
+Azure OpenAI account already exists from a previous attempt (the Bicep
+template creates it before the model deployment, so a failed deploy often
+still leaves it behind), query it directly:
+
+```bash
+az cognitiveservices account list --resource-group rg-lease-abstract \
+  --query "[?kind=='OpenAI'].name" -o tsv
+az cognitiveservices account list-models --name <that-name> \
+  --resource-group rg-lease-abstract -o table
+```
+
+If no account exists yet, create the resource group and run the deployment
+once (it'll fail on the model step, same as above, but the account will
+exist afterward for you to query), or check the Azure AI Foundry model
+catalog in the portal for your region instead.
+
+Pick a `gpt-4o` (or current equivalent) row that isn't past its retirement
+date, then set it in `infra/main.parameters.json` (`openAiChatModelVersion`)
+or pass it inline below. The template also sets `versionUpgradeOption:
+OnceNewDefaultVersionAvailable` so once deployed, it self-upgrades instead
+of hard-failing like this again.
+
+```bash
 az bicep build --file infra/main.bicep   # lint/validate first
 
 az deployment group create \
   --resource-group rg-lease-abstract \
   --template-file infra/main.bicep \
-  --parameters infra/main.parameters.json
+  --parameters infra/main.parameters.json \
+  --parameters openAiChatModelVersion=<version-from-above>
 ```
 
 Capture the outputs (`webAppName`, `postgresServerFqdn`, `storageAccountName`, ...) — you'll need `webAppName` below.

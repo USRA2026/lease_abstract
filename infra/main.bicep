@@ -38,6 +38,16 @@ param openAiSku string = 'S0'
 @description('Azure OpenAI chat model deployment name (also used as the model name).')
 param openAiChatDeployment string = 'gpt-4o'
 
+@description('''Azure OpenAI model version for the chat deployment. Model versions are
+retired on a rolling basis, so there is no safe hardcoded default here.
+Find a currently-available version for your subscription/region with:
+  az cognitiveservices account list-models --name <openAiAccountName> --resource-group <rg> -o table
+(the account name is the deployment output `openAiEndpoint`'s host prefix, or
+`az cognitiveservices account list --resource-group <rg> --query "[?kind=='OpenAI'].name" -o tsv`
+if you need to look it up). Pass the chosen value as
+--parameters openAiChatModelVersion=<version>.''')
+param openAiChatModelVersion string
+
 @description('Deploy an Azure AI Document Intelligence account for layout/OCR extraction with bounding boxes.')
 param deployDocumentIntelligence bool = true
 
@@ -160,8 +170,11 @@ resource openAiChatModel 'Microsoft.CognitiveServices/accounts/deployments@2023-
     model: {
       format: 'OpenAI'
       name: openAiChatDeployment
-      version: '2024-08-06'
+      version: openAiChatModelVersion
     }
+    // Once deployed, let Azure roll this deployment onto the new default
+    // version automatically as old ones retire, instead of hard-failing.
+    versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
   }
 }
 

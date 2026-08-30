@@ -8,6 +8,7 @@
     "appServicePlanSku": { "value": "B1" },
     "openAiSku": { "value": "S0" },
     "openAiChatDeployment": { "value": "gpt-4o" },
+    "openAiChatModelVersion": { "value": "REPLACE_WITH_A_CURRENTLY_AVAILABLE_VERSION" },
     "deployDocumentIntelligence": { "value": true }
   }
 }
