@@ -54,6 +54,13 @@ model/region/subscription before raising this — a value above what your
 subscription allows will fail the deployment the same way a bad quota did.''')
 param openAiChatCapacity int = 1
 
+@description('''Deployment SKU for the chat model (the "deployment type" in Azure OpenAI
+Studio: Standard, GlobalStandard, DataZoneStandard, ProvisionedManaged, ...).
+Newer models are often GlobalStandard-only; check the error message if a
+deployment rejects this, or look at the model's available deployment types
+in the Azure AI Foundry portal.''')
+param openAiChatDeploymentSku string = 'GlobalStandard'
+
 @description('Deploy an Azure AI Document Intelligence account for layout/OCR extraction with bounding boxes.')
 param deployDocumentIntelligence bool = true
 
@@ -169,7 +176,7 @@ resource openAiChatModel 'Microsoft.CognitiveServices/accounts/deployments@2023-
   parent: openAi
   name: openAiChatDeployment
   sku: {
-    name: 'Standard'
+    name: openAiChatDeploymentSku
     capacity: openAiChatCapacity
   }
   properties: {
