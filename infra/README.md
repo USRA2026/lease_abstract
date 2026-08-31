@@ -21,24 +21,30 @@ zero external dependencies; this deployment flips them to the Azure-backed
 **Using Claude instead of Azure OpenAI:** the app supports the Claude API
 (Anthropic) as an alternative AI provider (`lib/ai/anthropic.ts`) — it uses
 structured outputs so extraction/chat responses are schema-validated rather
-than parsed out of free text. The Bicep template always provisions Azure
-OpenAI (Document Intelligence depends on the same Cognitive Services
-resource group pattern), but you can point the app at Claude instead by
-also passing an Anthropic API key at deploy time:
+than parsed out of free text. Azure OpenAI's chat *model deployment* is the
+most quota-restricted resource in this whole template (region VM quota,
+model-version retirement, deployment-SKU compatibility, and
+tokens-per-minute quota are four independent ways it can fail) — if you hit
+any of those and don't want to fight it, skip that one resource entirely
+and run on Claude instead:
 
 ```bash
 az deployment group create \
   --resource-group rg-lease-abstract \
   --template-file infra/main.bicep \
   --parameters infra/main.parameters.json \
-  --parameters aiProvider=claude anthropicApiKey=<your-sk-ant-key> anthropicModel=claude-opus-5
+  --parameters deployOpenAiChatModel=false aiProvider=claude anthropicApiKey=<your-sk-ant-key> anthropicModel=claude-opus-5
 ```
 
-That stores the key in Key Vault (never in an app setting or source
-control) and sets `AI_PROVIDER=claude`. Get a key from
-[console.anthropic.com](https://console.anthropic.com/settings/keys). You
-can flip `AI_PROVIDER` back to `azure` any time by updating just that one
-app setting — both providers stay configured side by side.
+`deployOpenAiChatModel=false` skips only the model deployment sub-resource
+(the one that hits quota); the Azure OpenAI *account* is still created
+either way since it needs no quota and Document Intelligence uses the same
+resource pattern. That stores the Anthropic key in Key Vault (never in an
+app setting or source control) and sets `AI_PROVIDER=claude`. Get a key
+from [console.anthropic.com](https://console.anthropic.com/settings/keys).
+You can flip `AI_PROVIDER` back to `azure` any time (and set
+`deployOpenAiChatModel=true` on a later deployment) — both providers can be
+configured side by side.
 
 ## Prerequisites
 
@@ -130,7 +136,7 @@ Check **Settings → AI & Storage** in the app itself — it should read `azure`
 
 ## Notes & follow-ups
 
-- **Azure OpenAI region/quota**: if deployment fails on the `openAiChatModel` resource, your subscription may not yet have `gpt-4o` quota in the chosen region — request a quota increase or pick an approved region/model.
+- **Azure OpenAI region/quota**: if deployment fails on the `openAiChatModel` resource — wrong model version, unsupported deployment SKU, or `InsufficientQuota` for tokens-per-minute — either request a quota increase (Azure Portal → Quotas → search the model/SKU combo named in the error) or set `deployOpenAiChatModel=false` and use Claude instead (see above); don't keep guessing at more model/SKU combinations if quota is the real blocker.
 - **Document Intelligence** is provisioned but the app doesn't call it yet for uploaded-document layout extraction (`lib/ai/azure.ts` has a hook for it) — wiring it in is the natural next step to get word-perfect highlight boxes on arbitrary uploads instead of the current page-level fallback.
 - **Networking**: the Postgres firewall rule opens `0.0.0.0` (Azure services) for simplicity. For production, put the App Service and Postgres Flexible Server in the same VNet with private endpoints instead.
 - **Secrets**: the Bicep template stores secrets in Key Vault and references them from the App Service via `@Microsoft.KeyVault(...)` app settings (resolved automatically via the Web App's system-assigned identity, granted `Key Vault Secrets User`). Nothing sensitive needs to live in source control or CI variables beyond the publish profile.

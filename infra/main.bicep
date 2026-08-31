@@ -45,8 +45,10 @@ Find a currently-available version for your subscription/region with:
 (the account name is the deployment output `openAiEndpoint`'s host prefix, or
 `az cognitiveservices account list --resource-group <rg> --query "[?kind=='OpenAI'].name" -o tsv`
 if you need to look it up). Pass the chosen value as
---parameters openAiChatModelVersion=<version>.''')
-param openAiChatModelVersion string
+--parameters openAiChatModelVersion=<version>. Only required when
+deployOpenAiChatModel is true (the default) — leave blank if you're setting
+deployOpenAiChatModel=false to skip this resource and run on Claude instead.''')
+param openAiChatModelVersion string = ''
 
 @description('''Capacity (in thousands of tokens/minute) for the chat deployment.
 Check the MaxCapacity column from the list-models command above for this
@@ -63,6 +65,14 @@ param openAiChatDeploymentSku string = 'GlobalStandard'
 
 @description('Deploy an Azure AI Document Intelligence account for layout/OCR extraction with bounding boxes.')
 param deployDocumentIntelligence bool = true
+
+@description('''Deploy the Azure OpenAI chat MODEL deployment (the piece that consumes
+tokens-per-minute quota and is the most quota-restricted resource in this
+template). The Azure OpenAI ACCOUNT is always created regardless (it needs
+no quota) so its endpoint/key are still available. Set to false — typically
+paired with aiProvider=claude and anthropicApiKey set — to skip straight
+past Azure OpenAI capacity/quota issues entirely and run on Claude instead.''')
+param deployOpenAiChatModel bool = true
 
 @description('''Which AI backend the app uses at runtime: "azure" (Azure OpenAI,
 provisioned by this template either way) or "claude" (the Claude API/Anthropic
@@ -188,7 +198,7 @@ resource openAi 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   }
 }
 
-resource openAiChatModel 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
+resource openAiChatModel 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (deployOpenAiChatModel) {
   parent: openAi
   name: openAiChatDeployment
   sku: {

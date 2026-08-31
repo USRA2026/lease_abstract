@@ -12,6 +12,7 @@
     "openAiChatCapacity": { "value": 1 },
     "openAiChatDeploymentSku": { "value": "GlobalStandard" },
     "deployDocumentIntelligence": { "value": true },
+    "deployOpenAiChatModel": { "value": true },
     "aiProvider": { "value": "azure" },
     "anthropicApiKey": { "value": "" },
     "anthropicModel": { "value": "claude-opus-5" }
