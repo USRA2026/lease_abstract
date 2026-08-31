@@ -315,9 +315,15 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'NODE|20-lts'
-      appCommandLine: 'npm run start'
+      // The app builds with Next.js `output: "standalone"`, so the deployed
+      // package is the assembled .next/standalone folder whose entry point is
+      // server.js (a self-contained Node server with a pruned node_modules) —
+      // not `npm run start`/`next start`, which would need the full dep tree.
+      appCommandLine: 'node server.js'
       appSettings: [
-        { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'true' }
+        // Standalone ships its own runtime deps, so there's nothing for Oryx to
+        // build — but leaving this true is harmless (the package is pre-built).
+        { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'false' }
         { name: 'DATABASE_URL', value: '@Microsoft.KeyVault(SecretUri=${databaseUrlSecret.properties.secretUri})' }
         { name: 'STORAGE_DRIVER', value: 'azure' }
         { name: 'AZURE_STORAGE_ACCOUNT_NAME', value: storage.name }
@@ -349,6 +355,12 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
         // even though the app itself started fine on the "wrong" port.
         { name: 'WEBSITES_PORT', value: '3000' }
         { name: 'PORT', value: '3000' }
+        // Next.js standalone server.js binds to process.env.HOSTNAME. App
+        // Service can set HOSTNAME to a non-routable container name, which
+        // makes the server listen on an address the platform can't reach
+        // (startup probe times out). Pin it to 0.0.0.0 so it binds all
+        // interfaces.
+        { name: 'HOSTNAME', value: '0.0.0.0' }
       ]
     }
   }

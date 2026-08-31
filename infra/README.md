@@ -103,14 +103,55 @@ Capture the outputs (`webAppName`, `postgresServerFqdn`, `storageAccountName`, .
 
 ## 2. Deploy the application code
 
-Simplest path — zip deploy (App Service builds it with `SCM_DO_BUILD_DURING_DEPLOYMENT=true`, already set by the Bicep template):
+The app builds with Next.js `output: "standalone"` (see `next.config.mjs`),
+which produces `.next/standalone/` — a self-contained server (`server.js`)
+with a *pruned* `node_modules` (only the ~40 MB actually needed at runtime,
+including the correct Prisma query engine), rather than the full 500 MB+
+dependency tree. Deploy that assembled folder, not the raw source:
 
 ```bash
-zip -r app.zip . -x "node_modules/*" ".next/*" ".git/*" "storage/documents/*" "infra/main.parameters.json"
+# 1. Build (must be a real production build — see the NODE_ENV note below)
+npm install --legacy-peer-deps
+NODE_ENV=production npm run build
+
+# 2. Assemble the standalone package: standalone does NOT include .next/static
+#    or a guaranteed public/, so copy them in next to server.js. Drop any dev
+#    .env so App Service's own env vars are the only config source.
+cp -r .next/static .next/standalone/.next/static
+cp -r public .next/standalone/public
+rm -f .next/standalone/.env
+
+# 3. Zip the CONTENTS of standalone (so server.js lands at wwwroot root)
+cd .next/standalone && rm -f ../../app.zip && zip -r ../../app.zip . -x ".git/*" && cd ../..
+
+# 4. Deploy
 az webapp deploy --resource-group rg-lease-abstract --name <webAppName> --src-path app.zip --type zip
 ```
 
-`infra/main.parameters.json` contains your real Postgres admin password — make sure it's excluded from the zip (as above) so it never ends up inside the deployed package. If you've already deployed a zip that included it, rotate the password (`az postgres flexible-server update --resource-group rg-lease-abstract --name <postgresServerName> --admin-password <new-password>`) and update `DATABASE_URL` accordingly.
+The Bicep sets `appCommandLine: 'node server.js'` and `HOSTNAME=0.0.0.0` to
+match this layout (standalone's server.js binds to `HOSTNAME`, which App
+Service otherwise sets to a non-routable container name). `az webapp deploy
+--type zip` uses Run-From-Zip mode and skips any server-side build, which is
+exactly right here since the package is already built and self-contained —
+don't try to make it build on the server (that path needs the full dep tree
+and hits the same size limits).
+
+**Two gotchas that will bite you:**
+- **`NODE_ENV`**: if your shell has a stray `NODE_ENV` set to anything other
+  than `production`, `next build` loads a mix of dev/prod runtimes and crashes
+  prerendering with `Cannot read properties of null (reading 'useContext')` /
+  `<Html> should not be imported outside of pages/_document`. `unset NODE_ENV`
+  (or prefix `NODE_ENV=production`) before building.
+- **Don't zip the full `node_modules`**: a naive `zip -r app.zip .` including
+  the whole dependency tree produces a 500 MB+ package that fails Kudu
+  zipdeploy with HTTP 400 on a B1 plan. The standalone package avoids this.
+
+`infra/main.parameters.json` contains your real Postgres admin password — it
+lives only on your machine (gitignored) and isn't inside the standalone
+package, so it won't ship. If you ever deployed a zip that *did* include it,
+rotate the password (`az postgres flexible-server update --resource-group
+rg-lease-abstract --name <postgresServerName> --admin-password <new>`) and
+update `DATABASE_URL`.
 
 Or wire up `.github/workflows/deploy.yml` (included) with an `AZURE_WEBAPP_PUBLISH_PROFILE` repo secret (`az webapp deployment list-publish-profiles --xml`) for push-to-deploy.
 
