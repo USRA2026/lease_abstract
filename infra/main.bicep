@@ -341,7 +341,14 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
         }
         { name: 'ANTHROPIC_MODEL', value: anthropicModel }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
+        // Both must match: WEBSITES_PORT tells App Service's proxy which port to
+        // route to, and PORT is what `next start` actually binds to. Leaving only
+        // one set lets them drift (Azure's own auto-injected PORT for the Node
+        // runtime doesn't reliably match a manually-set WEBSITES_PORT), which
+        // shows up as "worker process failed to start within the allotted time"
+        // even though the app itself started fine on the "wrong" port.
         { name: 'WEBSITES_PORT', value: '3000' }
+        { name: 'PORT', value: '3000' }
       ]
     }
   }
