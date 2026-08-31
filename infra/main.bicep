@@ -22,6 +22,18 @@ param namePrefix string
 @description('Azure region for all resources.')
 param location string = resourceGroup().location
 
+@description('''Azure region for the PostgreSQL Flexible Server, if it needs to differ
+from `location`. Postgres Flexible Server provisioning can be regionally
+restricted for a subscription even when other resource types (App Service,
+Storage, etc.) work fine in that same region — check with:
+  az postgres flexible-server list-skus --location <region> -o json
+and look for a top-level "reason" field mentioning a restriction, or an
+empty "supportedServerEditions"/"supportedServerVersions" at the top level.
+Leave blank to use the same region as everything else (`location`).''')
+param postgresLocation string = ''
+
+var resolvedPostgresLocation = empty(postgresLocation) ? location : postgresLocation
+
 @description('Administrator username for the PostgreSQL Flexible Server.')
 param postgresAdminLogin string = 'leaseabstract'
 
@@ -152,7 +164,7 @@ resource documentsContainer 'Microsoft.Storage/storageAccounts/blobServices/cont
 
 resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2023-06-01-preview' = {
   name: 'psql-${resourceName}'
-  location: location
+  location: resolvedPostgresLocation
   sku: {
     name: 'Standard_B1ms'
     tier: 'Burstable'

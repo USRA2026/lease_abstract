@@ -3,6 +3,7 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "namePrefix": { "value": "leaseabs" },
+    "postgresLocation": { "value": "" },
     "postgresAdminLogin": { "value": "leaseabstract" },
     "postgresAdminPassword": { "value": "REPLACE_WITH_A_STRONG_PASSWORD" },
     "appServicePlanSku": { "value": "B1" },
