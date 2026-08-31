@@ -317,7 +317,6 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
       linuxFxVersion: 'NODE|20-lts'
       appCommandLine: 'npm run start'
       appSettings: [
-        { name: 'WEBSITE_RUN_FROM_PACKAGE', value: '1' }
         { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'true' }
         { name: 'DATABASE_URL', value: '@Microsoft.KeyVault(SecretUri=${databaseUrlSecret.properties.secretUri})' }
         { name: 'STORAGE_DRIVER', value: 'azure' }

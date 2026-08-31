@@ -106,9 +106,11 @@ Capture the outputs (`webAppName`, `postgresServerFqdn`, `storageAccountName`, .
 Simplest path — zip deploy (App Service builds it with `SCM_DO_BUILD_DURING_DEPLOYMENT=true`, already set by the Bicep template):
 
 ```bash
-zip -r app.zip . -x "node_modules/*" ".next/*" ".git/*" "storage/documents/*"
+zip -r app.zip . -x "node_modules/*" ".next/*" ".git/*" "storage/documents/*" "infra/main.parameters.json"
 az webapp deploy --resource-group rg-lease-abstract --name <webAppName> --src-path app.zip --type zip
 ```
+
+`infra/main.parameters.json` contains your real Postgres admin password — make sure it's excluded from the zip (as above) so it never ends up inside the deployed package. If you've already deployed a zip that included it, rotate the password (`az postgres flexible-server update --resource-group rg-lease-abstract --name <postgresServerName> --admin-password <new-password>`) and update `DATABASE_URL` accordingly.
 
 Or wire up `.github/workflows/deploy.yml` (included) with an `AZURE_WEBAPP_PUBLISH_PROFILE` repo secret (`az webapp deployment list-publish-profiles --xml`) for push-to-deploy.
 
