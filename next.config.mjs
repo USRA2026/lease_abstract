@@ -7,6 +7,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const nextConfig = {
   output: "standalone",
   experimental: {
+    // pdfjs-dist loads its worker (pdf.worker.mjs) via a runtime dynamic import
+    // that the standalone file tracer can't follow, so it gets left out of the
+    // bundle and every server-side PDF parse fails with "Cannot find module
+    // .../pdf.worker.mjs". Force-include it for the routes that extract text
+    // from uploaded PDFs.
+    outputFileTracingIncludes: {
+      "/api/abstracts/[id]/upload": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+      "/api/assets/[id]/documents": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+    },
     // Pin the file-tracing root to THIS app directory so `output: "standalone"`
     // deterministically emits `.next/standalone/server.js` with
     // `.next/standalone/node_modules` right beside it. Without this, Next walks
