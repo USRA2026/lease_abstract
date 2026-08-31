@@ -347,6 +347,14 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
         }
         { name: 'ANTHROPIC_MODEL', value: anthropicModel }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
+        // Keep the connection string available (for an in-code App Insights SDK
+        // later) but DISABLE codeless auto-instrumentation: on App Service
+        // Linux/Node, the connection string alone injects an agent via
+        // NODE_OPTIONS=--require, which is incompatible with the Next.js
+        // standalone server and crashes the container with exit code 1 ~30s
+        // after start (its async init throws). The app itself runs clean
+        // without it; re-enable via the SDK in code if telemetry is needed.
+        { name: 'ApplicationInsightsAgent_EXTENSION_VERSION', value: 'disabled' }
         // Both must match: WEBSITES_PORT tells App Service's proxy which port to
         // route to, and PORT is what `next start` actually binds to. Leaving only
         // one set lets them drift (Azure's own auto-injected PORT for the Node
