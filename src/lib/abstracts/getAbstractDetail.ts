@@ -14,6 +14,7 @@ export interface AbstractDetailCitation {
 
 export interface AbstractDetailField {
   key: string;
+  templateFieldId: string;
   label: string;
   value: string | null;
   citations: AbstractDetailCitation[];
@@ -98,6 +99,7 @@ export async function getAbstractDetail(id: string): Promise<AbstractDetail> {
       const abstractField = fieldByTemplateFieldId.get(templateField.id);
       return {
         key: templateField.key,
+        templateFieldId: templateField.id,
         label: templateField.label,
         value: abstractField?.value ?? null,
         citations: (abstractField?.citations ?? []).map((c) => ({

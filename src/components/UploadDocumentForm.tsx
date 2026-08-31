@@ -24,12 +24,21 @@ export function UploadDocumentForm({
     form.append("file", file);
     try {
       const res = await fetch(uploadUrl, { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      // Read as text first so a non-JSON error body (e.g. a raw 500) becomes a
+      // readable message instead of an "Unexpected end of JSON input" crash.
+      const raw = await res.text();
+      let data: { error?: string; document?: { title?: string }; extraction?: { provider?: string; fieldsFound?: number } } = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        throw new Error(raw?.slice(0, 300) || `Upload failed (HTTP ${res.status})`);
+      }
+      if (!res.ok) throw new Error(data.error ?? `Upload failed (HTTP ${res.status})`);
+      const docTitle = data.document?.title ?? "document";
       setMessage(
         data.extraction
-          ? `Uploaded "${data.document.title}". AI (${data.extraction.provider ?? "n/a"}) found ${data.extraction.fieldsFound ?? 0} field value(s).`
-          : `Uploaded "${data.document.title}".`
+          ? `Uploaded "${docTitle}". AI (${data.extraction.provider ?? "n/a"}) found ${data.extraction.fieldsFound ?? 0} field value(s).`
+          : `Uploaded "${docTitle}".`
       );
       router.refresh();
     } catch (err) {

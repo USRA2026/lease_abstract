@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Sparkles, Pencil, Trash2, Check } from "lucide-react";
 import clsx from "clsx";
 import { CitationPill } from "./CitationPill";
 import { ExportMenu } from "./ExportMenu";
@@ -23,9 +24,15 @@ export interface CitationData {
 
 export interface FieldRowData {
   key: string;
+  templateFieldId: string;
   label: string;
   value: string | null;
   citations: CitationData[];
+}
+
+export interface AssetOption {
+  id: string;
+  name: string;
 }
 
 export interface SectionData {
@@ -67,12 +74,70 @@ export interface AbstractDetailProps {
   rentSchedule: RentRow[];
   reportingRequirements: ReportingRow[];
   missingDocuments?: string | null;
+  assets: AssetOption[];
 }
 
 export function AbstractDetailClient(props: AbstractDetailProps) {
+  const router = useRouter();
   const [mode, setMode] = useState<"fields" | "viewer">("fields");
   const [chatOpen, setChatOpen] = useState(false);
   const [active, setActive] = useState<ActiveCitation | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [name, setName] = useState(props.name);
+  const [assetId, setAssetId] = useState(props.assetId ?? "");
+  const [error, setError] = useState<string | null>(null);
+
+  async function apiCall(url: string, method: string, body?: unknown) {
+    setError(null);
+    const res = await fetch(url, {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const raw = await res.text();
+    const data = raw ? JSON.parse(raw) : {};
+    if (!res.ok) throw new Error(data.error ?? `Request failed (HTTP ${res.status})`);
+    return data;
+  }
+
+  async function saveField(templateFieldId: string, value: string) {
+    try {
+      await apiCall(`/api/abstracts/${props.abstractId}/fields`, "PATCH", { templateFieldId, value });
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function saveName() {
+    if (name.trim() === props.name || !name.trim()) return;
+    try {
+      await apiCall(`/api/abstracts/${props.abstractId}`, "PATCH", { name: name.trim() });
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function saveAsset(nextAssetId: string) {
+    setAssetId(nextAssetId);
+    try {
+      await apiCall(`/api/abstracts/${props.abstractId}`, "PATCH", { assetId: nextAssetId || null });
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function deleteAbstract() {
+    if (!window.confirm(`Delete abstract "${props.name}"? This removes its fields, documents, and citations. This cannot be undone.`)) return;
+    try {
+      await apiCall(`/api/abstracts/${props.abstractId}`, "DELETE");
+      router.push("/abstracts");
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
 
   function openCitation(citation: CitationData, fieldLabel?: string) {
     setActive({
@@ -135,9 +200,36 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
         &gt; <span className="text-[#091E30]">{props.name}</span>
       </div>
 
-      <div className="mb-6 flex items-start justify-between">
-        <h1 className="text-2xl font-semibold text-usra-primary">{props.name}</h1>
-        <div className="flex items-center gap-3">
+      <div className="mb-6 flex items-start justify-between gap-4">
+        {editMode ? (
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={saveName}
+            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+            className="w-full max-w-md rounded-md border border-slate-300 px-3 py-1.5 text-2xl font-semibold text-usra-primary outline-none focus:border-usra-primary"
+          />
+        ) : (
+          <h1 className="text-2xl font-semibold text-usra-primary">{props.name}</h1>
+        )}
+        <div className="flex flex-shrink-0 items-center gap-3">
+          <button
+            onClick={() => setEditMode((v) => !v)}
+            className={clsx(
+              "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium",
+              editMode ? "bg-usra-primary text-white hover:bg-usra-navy" : "border border-slate-300 text-usra-navy hover:border-usra-primary hover:text-usra-primary"
+            )}
+          >
+            {editMode ? <Check size={16} /> : <Pencil size={16} />} {editMode ? "Done" : "Edit"}
+          </button>
+          {editMode && (
+            <button
+              onClick={deleteAbstract}
+              className="flex items-center gap-2 rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+            >
+              <Trash2 size={16} /> Delete
+            </button>
+          )}
           <ExportMenu abstractId={props.abstractId} />
           <button
             onClick={openAskAi}
@@ -148,9 +240,33 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
         </div>
       </div>
 
+      {error && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
+
       <div className="mb-8 grid grid-cols-4 gap-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <Field label="Name" value={props.name} />
-        <Field label="Asset" value={props.assetName ?? "Unassigned"} href={props.assetId ? `/assets/${props.assetId}` : undefined} />
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-usra-gray">Asset</div>
+          {editMode ? (
+            <select
+              value={assetId}
+              onChange={(e) => saveAsset(e.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-usra-primary"
+            >
+              <option value="">Unassigned</option>
+              {props.assets.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          ) : props.assetId ? (
+            <Link href={`/assets/${props.assetId}`} className="text-sm text-usra-primary hover:underline">
+              {props.assetName}
+            </Link>
+          ) : (
+            <div className="text-sm text-[#091E30]">Unassigned</div>
+          )}
+        </div>
         <Field label="Template" value={props.templateName} />
         <div>
           <div className="text-xs font-medium uppercase tracking-wide text-usra-gray">% Complete</div>
@@ -217,7 +333,12 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
               <div key={field.key} className="grid grid-cols-[220px_1fr] gap-4 px-5 py-3">
                 <div className="text-sm text-usra-gray">{field.label}</div>
                 <div className="text-sm text-[#091E30]">
-                  {field.value ? (
+                  {editMode ? (
+                    <EditableFieldValue
+                      initialValue={field.value ?? ""}
+                      onSave={(value) => saveField(field.templateFieldId, value)}
+                    />
+                  ) : field.value ? (
                     <span>
                       {field.value}
                       {field.citations.map((c) => (
@@ -299,6 +420,38 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
         </section>
       )}
     </div>
+  );
+}
+
+function EditableFieldValue({ initialValue, onSave }: { initialValue: string; onSave: (value: string) => void }) {
+  const [value, setValue] = useState(initialValue);
+  const multiline = initialValue.length > 60 || initialValue.includes("\n");
+
+  function commit() {
+    if (value !== initialValue) onSave(value);
+  }
+
+  if (multiline) {
+    return (
+      <textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        rows={3}
+        placeholder="Not yet abstracted"
+        className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-usra-primary"
+      />
+    );
+  }
+  return (
+    <input
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+      placeholder="Not yet abstracted"
+      className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-usra-primary"
+    />
   );
 }
 

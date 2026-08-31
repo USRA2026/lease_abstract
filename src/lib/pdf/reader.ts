@@ -1,3 +1,21 @@
+// pdfjs-dist v4 relies on Promise.withResolvers, which only exists on Node 22+.
+// Azure App Service runs the app on Node 20-lts, where it's undefined — without
+// this polyfill, extractDocumentText throws "Promise.withResolvers is not a
+// function" on every upload (the route then 500s with an empty body and the
+// client fails with "Unexpected end of JSON input"). Define it before pdfjs is
+// imported. Safe no-op on Node 22+ where it already exists.
+if (typeof (Promise as unknown as { withResolvers?: unknown }).withResolvers !== "function") {
+  (Promise as unknown as { withResolvers: unknown }).withResolvers = function withResolvers<T>() {
+    let resolve!: (value: T | PromiseLike<T>) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  };
+}
+
 export interface ExtractedPage {
   pageNumber: number;
   text: string;
