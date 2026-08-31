@@ -125,8 +125,8 @@ export function AssetDetailClient(props: AssetDetailProps) {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-usra-navy">Documents</h2>
           <UploadDocumentForm
             uploadUrl={`/api/assets/${props.assetId}/documents`}
-            label="Upload a document to this asset"
-            busyLabel="Uploading..."
+            label="Drag & drop documents here, or click to browse"
+            hint="Survey, title policy, insurance certificate…"
           />
         </div>
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">

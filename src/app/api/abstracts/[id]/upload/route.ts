@@ -61,13 +61,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     let extraction: { fieldsFound: number; provider: string } | null = null;
+    let extractionError: string | null = null;
     try {
       extraction = await runExtraction(abstract.id, [document.id]);
     } catch (err) {
+      // The document itself uploaded fine; only the AI abstraction failed.
+      // Surface the reason to the client instead of hiding it.
       console.error("Extraction failed after upload", err);
+      extractionError = err instanceof Error ? err.message : "AI abstraction failed";
     }
 
-    return NextResponse.json({ document: { id: document.id, title, acronym, pageCount: extracted.pageCount }, extraction });
+    return NextResponse.json({
+      document: { id: document.id, title, acronym, pageCount: extracted.pageCount },
+      extraction,
+      extractionError,
+    });
   } catch (err) {
     // Always return JSON so the client shows a real message instead of failing
     // to parse an empty 500 body ("Unexpected end of JSON input").

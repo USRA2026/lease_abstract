@@ -69,7 +69,10 @@ export async function runExtraction(abstractId: string, documentIds?: string[]) 
     for (const result of results) {
       const spec = fieldSpecs.find((f) => f.key === result.key);
       if (!spec) continue;
-      if (!result.value || result.value === "Not found in provided documents") continue;
+      const normalized = result.value?.trim() ?? "";
+      // Skip "not found" placeholders so empty fields stay visibly empty
+      // (rather than being filled with "N/A") and don't inflate % complete.
+      if (!normalized || /^(n\/?a|not found in provided documents|not found|none)$/i.test(normalized)) continue;
 
       fieldsFound++;
       const abstractField = await db.abstractField.upsert({

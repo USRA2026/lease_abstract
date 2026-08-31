@@ -58,9 +58,14 @@ export class AnthropicProvider implements AiProvider {
       .map((f) => `- key: "${f.key}", label: "${f.label}", section: "${f.sectionName}"${f.helpText ? `, hint: "${f.helpText}"` : ""}`)
       .join("\n");
 
-    const response = await client.messages.parse({
+    // Stream with generous headroom: extracting every template field at once
+    // (a Lease template is ~70 fields) is a large structured output, and with
+    // adaptive thinking on top a 16K cap can truncate the JSON mid-object,
+    // which makes parsing fail and returns nothing. Streaming avoids HTTP
+    // timeouts on the larger max_tokens (per the SDK guidance).
+    const stream = client.messages.stream({
       model: this.model,
-      max_tokens: 16000,
+      max_tokens: 32000,
       thinking: { type: "adaptive" },
       system:
         'You are a commercial real estate lease/loan abstraction analyst. Extract the requested fields strictly from the provided document excerpts. Never invent facts. If a field is not addressed in the documents, set value to "N/A" and confidence to 0. Always quote the exact source sentence in `snippet` and name the documentId + page it came from.',
@@ -72,6 +77,10 @@ export class AnthropicProvider implements AiProvider {
       ],
       output_config: { format: zodOutputFormat(ExtractFieldsResultSchema) },
     });
+    const response = await stream.finalMessage();
+    if (response.stop_reason === "refusal") {
+      throw new Error("The AI declined to process these documents.");
+    }
 
     const results = response.parsed_output?.fields ?? [];
     return input.fields.map((field) => {
@@ -96,9 +105,9 @@ export class AnthropicProvider implements AiProvider {
     const client = this.client();
     const context = buildDocumentContext(input.documents);
 
-    const response = await client.messages.parse({
+    const stream = client.messages.stream({
       model: this.model,
-      max_tokens: 16000,
+      max_tokens: 32000,
       thinking: { type: "adaptive" },
       system:
         "You are a commercial real estate contract analyst answering questions about a specific abstract's source documents. Answer only from the provided excerpts, and cite every claim with the exact documentId, page number, and a verbatim quoted snippet it came from. If the documents don't address the question, say so plainly.",
@@ -111,6 +120,7 @@ export class AnthropicProvider implements AiProvider {
       ],
       output_config: { format: zodOutputFormat(ChatAnswerSchema) },
     });
+    const response = await stream.finalMessage();
 
     return response.parsed_output ?? { answer: "I couldn't produce an answer for that.", citations: [] };
   }
