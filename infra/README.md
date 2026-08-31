@@ -121,12 +121,31 @@ cp -r .next/static .next/standalone/.next/static
 cp -r public .next/standalone/public
 rm -f .next/standalone/.env
 
-# 3. Zip the CONTENTS of standalone (so server.js lands at wwwroot root)
-cd .next/standalone && rm -f ../../app.zip && zip -r ../../app.zip . -x ".git/*" && cd ../..
+# 3. VERIFY the package before zipping — server.js and node_modules/next MUST be
+#    at the standalone root together, or the container crashes at startup with
+#    "Cannot find module 'next'".
+test -f .next/standalone/server.js && echo "OK server.js"       || { echo "MISSING server.js"; exit 1; }
+test -d .next/standalone/node_modules/next && echo "OK next"    || { echo "MISSING node_modules/next"; exit 1; }
 
-# 4. Deploy
-az webapp deploy --resource-group rg-lease-abstract --name <webAppName> --src-path app.zip --type zip
+# 4. Zip the CONTENTS of standalone into a zip OUTSIDE the repo (so the zip
+#    can't accidentally include itself or the source tree). Note the subshell:
+#    the `cd` must not leak, and the zip path is absolute.
+( cd .next/standalone && zip -rq /tmp/app.zip . -x ".git/*" )
+
+# 5. VERIFY the zip actually contains next before deploying
+unzip -l /tmp/app.zip | grep -q "node_modules/next/package.json" && echo "zip OK: contains next" || { echo "zip is missing next — do not deploy"; exit 1; }
+
+# 6. Deploy the verified zip
+az webapp deploy --resource-group rg-lease-abstract --name <webAppName> --src-path /tmp/app.zip --type zip
 ```
+
+The most common way this goes wrong is zipping the **repo root** (`zip -r app.zip .`
+from the project directory) instead of the **contents of `.next/standalone`** —
+that produces a package full of `src/`, `infra/`, etc. with `node_modules`
+excluded, so `server.js` deploys but has no `next` to load. The verification
+steps above catch that before it reaches Azure. `next.config.mjs` also pins
+`experimental.outputFileTracingRoot` so the standalone layout is deterministic
+regardless of where the repo is checked out.
 
 The Bicep sets `appCommandLine: 'node server.js'` and `HOSTNAME=0.0.0.0` to
 match this layout (standalone's server.js binds to `HOSTNAME`, which App
