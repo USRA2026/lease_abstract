@@ -41,6 +41,9 @@ enum ChatRole {
 model Team {
   id        String     @id @default(cuid())
   name      String
+  /// Selected Claude model for AI extraction/chat (e.g. "claude-sonnet-5").
+  /// When null, falls back to the ANTHROPIC_MODEL env var, then the default.
+  aiModel   String?
   createdAt DateTime   @default(now())
   users     User[]
   assets    Asset[]

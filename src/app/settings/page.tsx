@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { ModelSelector } from "@/components/ModelSelector";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,16 @@ export default async function SettingsPage() {
             <dd className="font-medium text-[#091E30]">{storageDriver}</dd>
           </div>
         </dl>
+        {aiProvider === "claude" && (
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <div className="mb-1 text-sm font-medium text-[#091E30]">Claude model</div>
+            <p className="mb-2 text-xs text-usra-gray">
+              Choose the model used for AI abstraction and Ask AI. Lower tiers cost less per document; Opus 5 is the most
+              capable. Applies to new extractions immediately.
+            </p>
+            <ModelSelector current={team?.aiModel ?? null} />
+          </div>
+        )}
         <p className="mt-3 text-xs text-usra-gray">
           Set AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_API_KEY and STORAGE_DRIVER=azure in your environment to switch this
           deployment from the local mock provider to Azure OpenAI + Azure Blob Storage. See infra/README.md.

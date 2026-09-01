@@ -3,6 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import type { AiChatResult, AiDocumentInput, AiExtractedField, AiProvider, AiTemplateFieldSpec } from "./types";
 import { buildDocumentContext } from "./context";
+import { db } from "@/lib/db";
 
 const DEFAULT_MODEL = "claude-opus-5";
 
@@ -44,8 +45,20 @@ export class AnthropicProvider implements AiProvider {
     return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   }
 
-  private get model() {
-    return process.env.ANTHROPIC_MODEL ?? DEFAULT_MODEL;
+  /**
+   * Resolves which Claude model to use: the team's saved choice (set from the
+   * Settings page) wins so the app controls it, then the ANTHROPIC_MODEL env
+   * var, then the default. Lets users trade cost/quality (e.g. Sonnet 5 or
+   * Haiku 4.5 to save vs. Opus 5) without a redeploy.
+   */
+  private async resolveModel(): Promise<string> {
+    try {
+      const team = await db.team.findFirst({ select: { aiModel: true } });
+      if (team?.aiModel) return team.aiModel;
+    } catch {
+      // fall through to env / default
+    }
+    return process.env.ANTHROPIC_MODEL || DEFAULT_MODEL;
   }
 
   async extractFields(input: {
@@ -53,6 +66,7 @@ export class AnthropicProvider implements AiProvider {
     documents: AiDocumentInput[];
   }): Promise<AiExtractedField[]> {
     const client = this.client();
+    const model = await this.resolveModel();
     const context = buildDocumentContext(input.documents);
     const fieldList = input.fields
       .map((f) => `- key: "${f.key}", label: "${f.label}", section: "${f.sectionName}"${f.helpText ? `, hint: "${f.helpText}"` : ""}`)
@@ -64,7 +78,7 @@ export class AnthropicProvider implements AiProvider {
     // which makes parsing fail and returns nothing. Streaming avoids HTTP
     // timeouts on the larger max_tokens (per the SDK guidance).
     const stream = client.messages.stream({
-      model: this.model,
+      model,
       max_tokens: 32000,
       thinking: { type: "adaptive" },
       system:
@@ -103,10 +117,11 @@ export class AnthropicProvider implements AiProvider {
     documents: AiDocumentInput[];
   }): Promise<AiChatResult> {
     const client = this.client();
+    const model = await this.resolveModel();
     const context = buildDocumentContext(input.documents);
 
     const stream = client.messages.stream({
-      model: this.model,
+      model,
       max_tokens: 32000,
       thinking: { type: "adaptive" },
       system:

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, Pencil, Trash2, Check } from "lucide-react";
+import { Sparkles, Pencil, Trash2, Check, Wand2, Loader2 } from "lucide-react";
 import clsx from "clsx";
 import { CitationPill } from "./CitationPill";
 import { ExportMenu } from "./ExportMenu";
@@ -86,6 +86,8 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
   const [name, setName] = useState(props.name);
   const [assetId, setAssetId] = useState(props.assetId ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [extractMsg, setExtractMsg] = useState<string | null>(null);
 
   async function apiCall(url: string, method: string, body?: unknown) {
     setError(null);
@@ -126,6 +128,21 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
       router.refresh();
     } catch (err) {
       setError((err as Error).message);
+    }
+  }
+
+  async function reExtract() {
+    setExtracting(true);
+    setExtractMsg(null);
+    setError(null);
+    try {
+      const data = await apiCall(`/api/abstracts/${props.abstractId}/extract`, "POST");
+      setExtractMsg(`AI (${data.provider ?? "n/a"}) filled ${data.fieldsFound ?? 0} field value(s) across all documents.`);
+      router.refresh();
+    } catch (err) {
+      setError(`Re-extraction failed: ${(err as Error).message}`);
+    } finally {
+      setExtracting(false);
     }
   }
 
@@ -230,6 +247,17 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
               <Trash2 size={16} /> Delete
             </button>
           )}
+          {props.documents.length > 0 && (
+            <button
+              onClick={reExtract}
+              disabled={extracting}
+              title="Re-run AI abstraction across all attached documents"
+              className="flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-usra-navy hover:border-usra-primary hover:text-usra-primary disabled:opacity-60"
+            >
+              {extracting ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
+              {extracting ? "Abstracting…" : "Re-extract all"}
+            </button>
+          )}
           <ExportMenu abstractId={props.abstractId} />
           <button
             onClick={openAskAi}
@@ -240,6 +268,7 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
         </div>
       </div>
 
+      {extractMsg && <div className="mb-4 rounded-md bg-green-50 px-3 py-2 text-xs text-green-700">{extractMsg}</div>}
       {error && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
 
       <div className="mb-8 grid grid-cols-4 gap-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
