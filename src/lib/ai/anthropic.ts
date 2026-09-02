@@ -7,6 +7,21 @@ import { db } from "@/lib/db";
 
 const DEFAULT_MODEL = "claude-opus-5";
 
+// Only Opus 5 and Sonnet 5 support adaptive thinking and output_config.effort;
+// Haiku 4.5 (offered in Settings as the cost-saving option) 400s on both, so
+// every call must gate these on the resolved model instead of hardcoding them.
+const ADAPTIVE_THINKING_MODELS = new Set(["claude-opus-5", "claude-sonnet-5"]);
+
+function thinkingConfig(model: string): { thinking: { type: "adaptive" } } | Record<string, never> {
+  return ADAPTIVE_THINKING_MODELS.has(model) ? { thinking: { type: "adaptive" } } : {};
+}
+
+type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+
+function effortConfig(model: string, effort: Effort): { effort: Effort } | Record<string, never> {
+  return ADAPTIVE_THINKING_MODELS.has(model) ? { effort } : {};
+}
+
 const ExtractedFieldSchema = z.object({
   key: z.string(),
   value: z.string(),
@@ -86,7 +101,7 @@ export class AnthropicProvider implements AiProvider {
     const stream = client.messages.stream({
       model,
       max_tokens: 32000,
-      thinking: { type: "adaptive" },
+      ...thinkingConfig(model),
       system:
         'You are a commercial real estate lease/loan abstraction analyst. Extract the requested fields strictly from the provided document excerpts. Never invent facts. If a field is not addressed in the documents, set value to "N/A" and confidence to 0. Always quote the exact source sentence in `snippet` and name the documentId + page it came from. When the document is organized by numbered sections or articles, also return `sectionRef` with the specific reference the value came from, formatted like "§ 6(b)", "§§ 8(b), 17" or "Art. 2(2.1)"; leave it null for documents without section numbering (letters, memoranda).',
       messages: [
@@ -143,7 +158,7 @@ export class AnthropicProvider implements AiProvider {
           content: `Filename: ${input.fileName}\nAbstract type: ${input.abstractKind ?? "unknown"}\nAcronyms already used in this abstract: ${input.existingAcronyms.join(", ") || "(none)"}\n\nOpening text:\n${input.firstPageText.slice(0, 4000)}`,
         },
       ],
-      output_config: { effort: "low", format: zodOutputFormat(DescribeDocumentSchema) },
+      output_config: { ...effortConfig(model, "low"), format: zodOutputFormat(DescribeDocumentSchema) },
     });
     const response = await stream.finalMessage();
     const out = response.parsed_output;
@@ -163,7 +178,7 @@ export class AnthropicProvider implements AiProvider {
     const stream = client.messages.stream({
       model,
       max_tokens: 32000,
-      thinking: { type: "adaptive" },
+      ...thinkingConfig(model),
       system:
         "You are a commercial real estate contract analyst answering questions about a specific abstract's source documents. Answer only from the provided excerpts, and cite every claim with the exact documentId, page number, and a verbatim quoted snippet it came from. If the documents don't address the question, say so plainly.",
       messages: [
