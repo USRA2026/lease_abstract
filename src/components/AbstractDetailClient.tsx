@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, Pencil, Trash2, Check, Wand2, Loader2 } from "lucide-react";
+import { Sparkles, Pencil, Trash2, Check, Wand2, Loader2, Tag } from "lucide-react";
 import clsx from "clsx";
 import { CitationPill } from "./CitationPill";
 import { ExportMenu } from "./ExportMenu";
@@ -88,6 +88,8 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
   const [error, setError] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [extractMsg, setExtractMsg] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [renameMsg, setRenameMsg] = useState<string | null>(null);
 
   async function apiCall(url: string, method: string, body?: unknown) {
     setError(null);
@@ -165,6 +167,25 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
     }
   }
 
+  async function renameDocuments() {
+    setRenaming(true);
+    setRenameMsg(null);
+    setError(null);
+    try {
+      const data = await apiCall(`/api/abstracts/${props.abstractId}/rename-documents`, "POST");
+      setRenameMsg(
+        data.renamed > 0
+          ? `Renamed ${data.renamed} document(s) using AI.`
+          : "No documents needed renaming — all already have a real title/acronym."
+      );
+      router.refresh();
+    } catch (err) {
+      setError(`Renaming failed: ${(err as Error).message}`);
+    } finally {
+      setRenaming(false);
+    }
+  }
+
   async function deleteAbstract() {
     if (!window.confirm(`Delete abstract "${props.name}"? This removes its fields, documents, and citations. This cannot be undone.`)) return;
     try {
@@ -208,6 +229,7 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
   }
 
   const viewerDocuments = props.documents.map((d) => ({ id: d.id, title: d.title, acronym: d.acronym, pageCount: d.pageCount }));
+  const hasUnnamedDocuments = props.documents.some((d) => /^[UA]\d+$/i.test(d.acronym));
 
   if (mode === "viewer" && active) {
     return (
@@ -266,6 +288,17 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
               <Trash2 size={16} /> Delete
             </button>
           )}
+          {hasUnnamedDocuments && (
+            <button
+              onClick={renameDocuments}
+              disabled={renaming}
+              title="Use AI to give unnamed documents (U1, U2, ...) a real title and citation acronym"
+              className="flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-usra-navy hover:border-usra-primary hover:text-usra-primary disabled:opacity-60"
+            >
+              {renaming ? <Loader2 size={16} className="animate-spin" /> : <Tag size={16} />}
+              {renaming ? "Renaming…" : "Fix document names"}
+            </button>
+          )}
           {props.documents.length > 0 && (
             <button
               onClick={reExtract}
@@ -287,6 +320,7 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
         </div>
       </div>
 
+      {renameMsg && <div className="mb-4 rounded-md bg-green-50 px-3 py-2 text-xs text-green-700">{renameMsg}</div>}
       {extractMsg && <div className="mb-4 rounded-md bg-green-50 px-3 py-2 text-xs text-green-700">{extractMsg}</div>}
       {error && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
 

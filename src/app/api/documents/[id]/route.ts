@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { applyDocumentRename } from "@/lib/documents/rename";
 
 export const runtime = "nodejs";
 
@@ -23,29 +24,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
     }
 
-    const before = await db.document.findUnique({ where: { id: params.id }, select: { acronym: true } });
-    if (!before) return NextResponse.json({ error: "Document not found" }, { status: 404 });
-
-    const document = await db.document.update({ where: { id: params.id }, data });
-
-    // Keep existing citation labels in sync with a renamed acronym
-    // ("U3 p. 1" -> "BL p. 1", "U3 § 6(b)" -> "BL § 6(b)"). Swap just the
-    // acronym prefix so section references in the label are preserved.
-    if (data.acronym && data.acronym !== before.acronym) {
-      const escaped = before.acronym.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const prefix = new RegExp("^" + escaped + "(?=\\s|$)", "i");
-      const citations = await db.citation.findMany({ where: { documentId: document.id } });
-      for (const c of citations) {
-        const label = prefix.test(c.label)
-          ? c.label.replace(prefix, document.acronym)
-          : `${document.acronym} ${c.sectionRef ?? `p. ${c.page}`}`;
-        if (label !== c.label) {
-          await db.citation.update({ where: { id: c.id }, data: { label } });
-        }
-      }
-    }
-
-    return NextResponse.json({ document: { id: document.id, title: document.title, acronym: document.acronym } });
+    const document = await applyDocumentRename(params.id, data);
+    return NextResponse.json({ document });
   } catch (err) {
     console.error("Update document failed", err);
     return NextResponse.json({ error: err instanceof Error ? err.message : "Could not update document" }, { status: 500 });
