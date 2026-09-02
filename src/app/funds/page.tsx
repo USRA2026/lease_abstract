@@ -1,21 +1,14 @@
-import { db } from "@/lib/db";
-import { FundsManager } from "@/components/FundsManager";
+import { getFundDashboard } from "@/lib/funds/metrics";
+import { FundsDashboard } from "@/components/FundsDashboard";
 
 export const dynamic = "force-dynamic";
 
 export default async function FundsPage() {
-  const funds = await db.fund.findMany({
-    include: { _count: { select: { assets: true } } },
-    orderBy: { name: "asc" },
-  });
-  const unassignedCount = await db.asset.count({ where: { fundId: null } });
+  const data = await getFundDashboard();
 
   return (
-    <div className="mx-auto max-w-4xl px-8 py-8">
-      <FundsManager
-        funds={funds.map((f) => ({ id: f.id, name: f.name, assetCount: f._count.assets }))}
-        unassignedCount={unassignedCount}
-      />
+    <div className="mx-auto max-w-6xl px-8 py-8">
+      <FundsDashboard funds={data.funds} unaffiliated={data.unaffiliated} totals={data.totals} />
     </div>
   );
 }

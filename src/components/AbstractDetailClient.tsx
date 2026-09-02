@@ -102,6 +102,25 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
     return data;
   }
 
+  async function saveDocument(documentId: string, patch: { title?: string; acronym?: string }) {
+    try {
+      await apiCall(`/api/documents/${documentId}`, "PATCH", patch);
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function deleteDocument(documentId: string, title: string) {
+    if (!window.confirm(`Remove document "${title}" from this abstract? Its citations will be deleted too.`)) return;
+    try {
+      await apiCall(`/api/documents/${documentId}`, "DELETE");
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
   async function saveField(templateFieldId: string, value: string) {
     try {
       await apiCall(`/api/abstracts/${props.abstractId}/fields`, "PATCH", { templateFieldId, value });
@@ -312,7 +331,10 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
 
       <section className="mb-8">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-usra-navy">Documents</h2>
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-usra-navy">Documents</h2>
+            <p className="text-xs text-usra-gray">Acronyms are used in citations, e.g. BL § 6(b) or CDM p. 1.{editMode ? " Click a title or acronym to rename it." : ""}</p>
+          </div>
           <UploadDocumentForm uploadUrl={`/api/abstracts/${props.abstractId}/upload`} />
         </div>
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -322,6 +344,7 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
                 <th className="px-4 py-2 font-semibold">File Name</th>
                 <th className="px-4 py-2 font-semibold">Title</th>
                 <th className="px-4 py-2 font-semibold">Acronym</th>
+                {editMode && <th className="w-12 px-4 py-2" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -338,13 +361,32 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
                       {d.fileName}
                     </button>
                   </td>
-                  <td className="px-4 py-2 text-[#091E30]">{d.title}</td>
-                  <td className="px-4 py-2 text-usra-gray">{d.acronym}</td>
+                  <td className="px-4 py-2 text-[#091E30]">
+                    {editMode ? (
+                      <InlineText value={d.title} onSave={(title) => saveDocument(d.id, { title })} />
+                    ) : (
+                      d.title
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-usra-gray">
+                    {editMode ? (
+                      <InlineText value={d.acronym} onSave={(acronym) => saveDocument(d.id, { acronym })} className="w-24 uppercase" />
+                    ) : (
+                      <span className="rounded bg-usra-pale/50 px-1.5 py-0.5 font-mono text-xs text-usra-navy">{d.acronym}</span>
+                    )}
+                  </td>
+                  {editMode && (
+                    <td className="px-4 py-2 text-right">
+                      <button onClick={() => deleteDocument(d.id, d.title)} className="text-usra-gray hover:text-red-600" title="Remove document">
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {props.documents.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-4 text-center text-usra-gray">
+                  <td colSpan={editMode ? 4 : 3} className="px-4 py-4 text-center text-usra-gray">
                     No documents uploaded yet.
                   </td>
                 </tr>
@@ -449,6 +491,26 @@ export function AbstractDetailClient(props: AbstractDetailProps) {
         </section>
       )}
     </div>
+  );
+}
+
+function InlineText({ value, onSave, className }: { value: string; onSave: (value: string) => void; className?: string }) {
+  const [draft, setDraft] = useState(value);
+
+  function commit() {
+    const next = draft.trim();
+    if (next && next !== value) onSave(next);
+    else setDraft(value);
+  }
+
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+      className={clsx("w-full rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-usra-primary", className)}
+    />
   );
 }
 

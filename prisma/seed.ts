@@ -41,10 +41,17 @@ const ASSET_FUNDS: Record<string, string> = {
   "Albertsons Chicago": "USRA Credit Strategies Fund",
 };
 
+/// Dashboard attributes for the demo funds (code, vintage, strategy, target size).
+const FUND_DETAILS: Record<string, { code: string; vintageYear: number; strategy: string; targetAmount: number }> = {
+  "USRA Net Lease Fund I": { code: "NLF-I", vintageYear: 2018, strategy: "Core single-tenant net lease", targetAmount: 500_000_000 },
+  "USRA Net Lease Fund II": { code: "NLF-II", vintageYear: 2021, strategy: "Net lease, build-to-suit and sale-leaseback", targetAmount: 750_000_000 },
+  "USRA Credit Strategies Fund": { code: "CSF", vintageYear: 2023, strategy: "Credit-tenant lease and structured finance", targetAmount: 400_000_000 },
+};
+
 async function getOrCreateFund(teamId: string, name: string, fundIdByName: Map<string, string>): Promise<string> {
   const cached = fundIdByName.get(name);
   if (cached) return cached;
-  const fund = await db.fund.create({ data: { name, teamId } });
+  const fund = await db.fund.create({ data: { name, teamId, ...(FUND_DETAILS[name] ?? {}) } });
   fundIdByName.set(name, fund.id);
   return fund.id;
 }

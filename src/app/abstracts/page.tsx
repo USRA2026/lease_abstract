@@ -1,30 +1,66 @@
 import Link from "next/link";
+import type { Prisma } from "@prisma/client";
+import clsx from "clsx";
 import { db } from "@/lib/db";
 import { formatShortDate, percentCompleteColor } from "@/lib/format";
-import { Search } from "lucide-react";
-import clsx from "clsx";
+import { AbstractFilters, UNASSIGNED_FUND, type AbstractFilterValues } from "@/components/AbstractFilters";
 
 export const dynamic = "force-dynamic";
 
-export default async function AbstractsPage({
-  searchParams,
-}: {
-  searchParams: { q?: string };
-}) {
-  const q = searchParams.q?.trim();
+function buildWhere(f: AbstractFilterValues): Prisma.AbstractWhereInput {
+  const and: Prisma.AbstractWhereInput[] = [];
 
-  const abstracts = await db.abstract.findMany({
-    where: q
-      ? {
-          OR: [
-            { name: { contains: q, mode: "insensitive" } },
-            { asset: { name: { contains: q, mode: "insensitive" } } },
-          ],
-        }
-      : undefined,
-    include: { asset: true, template: true },
-    orderBy: { updatedAt: "desc" },
-  });
+  if (f.q) {
+    and.push({
+      OR: [
+        { name: { contains: f.q, mode: "insensitive" } },
+        { asset: { name: { contains: f.q, mode: "insensitive" } } },
+        { asset: { fund: { name: { contains: f.q, mode: "insensitive" } } } },
+        { documents: { some: { title: { contains: f.q, mode: "insensitive" } } } },
+        { documents: { some: { acronym: { equals: f.q, mode: "insensitive" } } } },
+      ],
+    });
+  }
+  if (f.fund === UNASSIGNED_FUND) {
+    and.push({ OR: [{ assetId: null }, { asset: { fundId: null } }] });
+  } else if (f.fund) {
+    and.push({ asset: { fundId: f.fund } });
+  }
+  if (f.asset) and.push({ assetId: f.asset });
+  if (f.template) and.push({ templateId: f.template });
+  if (f.status === "complete") and.push({ percentComplete: { gte: 100 } });
+  else if (f.status === "inprogress") and.push({ percentComplete: { gt: 0, lt: 100 } });
+  else if (f.status === "notstarted") and.push({ percentComplete: { lte: 0 } });
+
+  return and.length ? { AND: and } : {};
+}
+
+export default async function AbstractsPage({ searchParams }: { searchParams: AbstractFilterValues }) {
+  const filters: AbstractFilterValues = {
+    q: searchParams.q?.trim() || undefined,
+    fund: searchParams.fund || undefined,
+    asset: searchParams.asset || undefined,
+    template: searchParams.template || undefined,
+    status: searchParams.status || undefined,
+  };
+
+  const [abstracts, funds, assets, templates] = await Promise.all([
+    db.abstract.findMany({
+      where: buildWhere(filters),
+      include: {
+        asset: { include: { fund: { select: { id: true, name: true, code: true } } } },
+        template: true,
+        _count: { select: { documents: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+    db.fund.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.asset.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, fundId: true } }),
+    db.template.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  ]);
+
+  const total = await db.abstract.count();
+  const isFiltered = Object.values(filters).some(Boolean);
 
   return (
     <div className="mx-auto max-w-6xl px-8 py-8">
@@ -38,18 +74,7 @@ export default async function AbstractsPage({
         </Link>
       </div>
 
-      <form className="mb-5">
-        <div className="relative max-w-sm">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-usra-gray" />
-          <input
-            type="text"
-            name="q"
-            defaultValue={q}
-            placeholder="Search abstracts..."
-            className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-[#091E30] shadow-sm focus:border-usra-primary focus:outline-none focus:ring-1 focus:ring-usra-primary"
-          />
-        </div>
-      </form>
+      <AbstractFilters funds={funds} assets={assets} templates={templates} current={filters} />
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
@@ -58,8 +83,10 @@ export default async function AbstractsPage({
               <th className="px-5 py-3 font-semibold">Name</th>
               <th className="px-5 py-3 font-semibold">Abstract Template</th>
               <th className="px-5 py-3 font-semibold">% Complete</th>
+              <th className="px-5 py-3 font-semibold">Docs</th>
               <th className="px-5 py-3 font-semibold">Last Updated</th>
               <th className="px-5 py-3 font-semibold">Asset</th>
+              <th className="px-5 py-3 font-semibold">Fund</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -81,6 +108,7 @@ export default async function AbstractsPage({
                     {abstract.percentComplete}
                   </span>
                 </td>
+                <td className="px-5 py-3 text-[#091E30]">{abstract._count.documents}</td>
                 <td className="px-5 py-3 text-[#091E30]">{formatShortDate(abstract.updatedAt)}</td>
                 <td className="px-5 py-3">
                   {abstract.asset ? (
@@ -91,14 +119,32 @@ export default async function AbstractsPage({
                     <span className="text-usra-gray">&mdash;</span>
                   )}
                 </td>
+                <td className="px-5 py-3">
+                  {abstract.asset?.fund ? (
+                    <Link href={`/abstracts?fund=${abstract.asset.fund.id}`} className="text-usra-primary hover:underline">
+                      {abstract.asset.fund.code ?? abstract.asset.fund.name}
+                    </Link>
+                  ) : (
+                    <span className="text-usra-gray">Unaffiliated</span>
+                  )}
+                </td>
               </tr>
             ))}
+            {abstracts.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-5 py-8 text-center text-usra-gray">
+                  {isFiltered ? "No abstracts match these filters." : "No abstracts yet. Create one to get started."}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
       <div className="mt-3 text-xs text-usra-gray">
-        {abstracts.length} abstract{abstracts.length === 1 ? "" : "s"}
+        {isFiltered
+          ? `${abstracts.length} of ${total} abstract${total === 1 ? "" : "s"}`
+          : `${abstracts.length} abstract${abstracts.length === 1 ? "" : "s"}`}
       </div>
     </div>
   );

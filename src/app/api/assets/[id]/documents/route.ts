@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getStorageDriver } from "@/lib/storage";
 import { extractDocumentText } from "@/lib/pdf/reader";
+import { getAiProvider } from "@/lib/ai";
+import { uniqueAcronym, titleFromFileName } from "@/lib/documents/naming";
 
 export const runtime = "nodejs";
 
@@ -28,12 +30,34 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Only PDF documents are supported" }, { status: 400 });
     }
 
-    const title = (form.get("title") as string) || file.name.replace(/\.pdf$/i, "");
+    const requestedTitle = (form.get("title") as string)?.trim();
     const requestedAcronym = (form.get("acronym") as string)?.trim().toUpperCase();
-    const acronym = requestedAcronym || `A${asset.documents.length + 1}`;
+    const existingAcronyms = asset.documents.map((d) => d.acronym);
 
     const bytes = Buffer.from(await file.arrayBuffer());
     const extracted = await extractDocumentText(bytes);
+
+    // Give asset-level documents a proper title + citation acronym too
+    // (e.g. "Title Policy" / "TP"), falling back to the filename.
+    let title = requestedTitle || titleFromFileName(file.name);
+    let acronym = requestedAcronym || "";
+    if (!requestedTitle || !requestedAcronym) {
+      try {
+        const ai = getAiProvider();
+        if (ai.describeDocument) {
+          const described = await ai.describeDocument({
+            fileName: file.name,
+            firstPageText: extracted.pages[0]?.text ?? "",
+            existingAcronyms,
+          });
+          if (!requestedTitle && described.title) title = described.title;
+          if (!requestedAcronym && described.acronym) acronym = described.acronym;
+        }
+      } catch (err) {
+        console.warn("Document naming failed; using filename fallback", err);
+      }
+    }
+    acronym = uniqueAcronym(acronym || `A${asset.documents.length + 1}`, existingAcronyms);
 
     const storage = getStorageDriver();
     const storageKey = `uploads/asset-${asset.id}/${Date.now()}-${file.name}`;

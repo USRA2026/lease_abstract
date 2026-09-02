@@ -14,6 +14,7 @@ const ExtractedFieldSchema = z.object({
   documentId: z.string().nullable().optional(),
   page: z.number().nullable().optional(),
   snippet: z.string().nullable().optional(),
+  sectionRef: z.string().nullable().optional(),
 });
 
 const ExtractFieldsResultSchema = z.object({
@@ -29,6 +30,11 @@ const ChatAnswerSchema = z.object({
       snippet: z.string(),
     })
   ),
+});
+
+const DescribeDocumentSchema = z.object({
+  title: z.string(),
+  acronym: z.string(),
 });
 
 /**
@@ -82,7 +88,7 @@ export class AnthropicProvider implements AiProvider {
       max_tokens: 32000,
       thinking: { type: "adaptive" },
       system:
-        'You are a commercial real estate lease/loan abstraction analyst. Extract the requested fields strictly from the provided document excerpts. Never invent facts. If a field is not addressed in the documents, set value to "N/A" and confidence to 0. Always quote the exact source sentence in `snippet` and name the documentId + page it came from.',
+        'You are a commercial real estate lease/loan abstraction analyst. Extract the requested fields strictly from the provided document excerpts. Never invent facts. If a field is not addressed in the documents, set value to "N/A" and confidence to 0. Always quote the exact source sentence in `snippet` and name the documentId + page it came from. When the document is organized by numbered sections or articles, also return `sectionRef` with the specific reference the value came from, formatted like "§ 6(b)", "§§ 8(b), 17" or "Art. 2(2.1)"; leave it null for documents without section numbering (letters, memoranda).',
       messages: [
         {
           role: "user",
@@ -107,8 +113,42 @@ export class AnthropicProvider implements AiProvider {
         documentId: match.documentId ?? undefined,
         page: match.page ?? undefined,
         snippet: match.snippet ?? undefined,
+        sectionRef: match.sectionRef ?? undefined,
       };
     });
+  }
+
+  /**
+   * Names an uploaded document the way an abstractor would cite it: a clean
+   * Title Case display title and a short acronym (BL, 1A, GOL, CDM, NTT, ...),
+   * avoiding acronyms already used in the abstract. Cheap call — low effort,
+   * small output.
+   */
+  async describeDocument(input: {
+    fileName: string;
+    firstPageText: string;
+    existingAcronyms: string[];
+    abstractKind?: string;
+  }): Promise<{ title: string; acronym: string }> {
+    const client = this.client();
+    const model = await this.resolveModel();
+    const stream = client.messages.stream({
+      model,
+      max_tokens: 1024,
+      system:
+        'You name commercial real estate lease and loan documents for an abstraction database. Given a filename and the opening text, return (1) a clean conventional display title in Title Case with no dates, party names, or file extension — e.g. "Warehouse Lease Agreement", "First Amendment To Warehouse Lease Agreement", "Guaranty Of Lease", "Commencement Date Memorandum", "Notice To Tenant", "Loan Agreement", "Promissory Note", "Deed Of Trust" — and (2) a short UPPERCASE citation acronym of 2-6 characters. Use these conventions when they fit: BL (base lease), 1A/2A/3A (first/second/third amendment), GOL (guaranty of lease), CDM (commencement date memorandum), NTT (notice to tenant), SNDA, ESTOP (estoppel), LA (loan agreement), PN (promissory note), DOT (deed of trust), LDOTSA (loan/deed of trust/security agreement). Never reuse an acronym from the list of existing acronyms; choose the next natural variant instead.',
+      messages: [
+        {
+          role: "user",
+          content: `Filename: ${input.fileName}\nAbstract type: ${input.abstractKind ?? "unknown"}\nAcronyms already used in this abstract: ${input.existingAcronyms.join(", ") || "(none)"}\n\nOpening text:\n${input.firstPageText.slice(0, 4000)}`,
+        },
+      ],
+      output_config: { effort: "low", format: zodOutputFormat(DescribeDocumentSchema) },
+    });
+    const response = await stream.finalMessage();
+    const out = response.parsed_output;
+    if (!out) throw new Error("Could not name the document.");
+    return { title: out.title.trim(), acronym: out.acronym.trim().toUpperCase() };
   }
 
   async answerQuestion(input: {

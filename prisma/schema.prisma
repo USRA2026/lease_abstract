@@ -66,6 +66,14 @@ model User {
 model Fund {
   id        String   @id @default(cuid())
   name      String
+  /// Short code shown on the dashboard card, e.g. "IP-I" or "NLP-IV".
+  code         String?
+  /// Vintage year the vehicle was raised/launched, e.g. 2021.
+  vintageYear  Int?
+  /// Strategy blurb, e.g. "Industrial / last-mile" or "Core NNN".
+  strategy     String?
+  /// Target fund size (or loan target) in whole dollars.
+  targetAmount Float?
   teamId    String
   team      Team     @relation(fields: [teamId], references: [id])
   assets    Asset[]

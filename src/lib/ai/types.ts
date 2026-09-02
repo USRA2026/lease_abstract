@@ -20,6 +20,8 @@ export interface AiExtractedField {
   documentId?: string;
   page?: number;
   snippet?: string;
+  /** Section/article reference the value came from, e.g. "§ 6(b)" or "Art. 2(2.1)". */
+  sectionRef?: string;
 }
 
 export interface AiChatCitation {
@@ -49,4 +51,17 @@ export interface AiProvider {
     history: ChatHistoryMessage[];
     documents: AiDocumentInput[];
   }): Promise<AiChatResult>;
+  /**
+   * Optional: infer a clean display title and a short citation acronym for an
+   * uploaded document from its filename + opening text, e.g. "Warehouse Lease
+   * Agreement" / "BL", "First Amendment To Warehouse Lease Agreement" / "1A".
+   * Providers that don't implement it fall back to the filename and a generic
+   * U1/U2 acronym.
+   */
+  describeDocument?(input: {
+    fileName: string;
+    firstPageText: string;
+    existingAcronyms: string[];
+    abstractKind?: string;
+  }): Promise<{ title: string; acronym: string }>;
 }

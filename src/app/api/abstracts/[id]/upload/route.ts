@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getStorageDriver } from "@/lib/storage";
 import { extractDocumentText } from "@/lib/pdf/reader";
 import { runExtraction } from "@/lib/extraction/pipeline";
+import { getAiProvider } from "@/lib/ai";
+import { uniqueAcronym, titleFromFileName } from "@/lib/documents/naming";
 
 export const runtime = "nodejs";
 
@@ -25,12 +27,37 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Only PDF documents are supported" }, { status: 400 });
     }
 
-    const title = (form.get("title") as string) || file.name.replace(/\.pdf$/i, "");
+    const requestedTitle = (form.get("title") as string)?.trim();
     const requestedAcronym = (form.get("acronym") as string)?.trim().toUpperCase();
-    const acronym = requestedAcronym || `U${abstract.documents.length + 1}`;
+    const existingAcronyms = abstract.documents.map((d) => d.acronym);
 
     const bytes = Buffer.from(await file.arrayBuffer());
     const extracted = await extractDocumentText(bytes);
+
+    // Name the document the way an abstractor cites it ("Warehouse Lease
+    // Agreement" / "BL") so citations read like a real abstract rather than
+    // "U3 p. 1". Falls back to the filename + a generic acronym if the AI
+    // provider can't name it.
+    let title = requestedTitle || titleFromFileName(file.name);
+    let acronym = requestedAcronym || "";
+    if (!requestedTitle || !requestedAcronym) {
+      try {
+        const ai = getAiProvider();
+        if (ai.describeDocument) {
+          const described = await ai.describeDocument({
+            fileName: file.name,
+            firstPageText: extracted.pages[0]?.text ?? "",
+            existingAcronyms,
+            abstractKind: abstract.kind,
+          });
+          if (!requestedTitle && described.title) title = described.title;
+          if (!requestedAcronym && described.acronym) acronym = described.acronym;
+        }
+      } catch (err) {
+        console.warn("Document naming failed; using filename fallback", err);
+      }
+    }
+    acronym = uniqueAcronym(acronym || `U${abstract.documents.length + 1}`, existingAcronyms);
 
     const storage = getStorageDriver();
     const storageKey = `uploads/${abstract.id}/${Date.now()}-${file.name}`;

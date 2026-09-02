@@ -98,7 +98,11 @@ export async function runExtraction(abstractId: string, documentIds?: string[]) 
             documentId: sourceDoc.id,
             abstractFieldId: abstractField.id,
             page: result.page,
-            label: `${sourceDoc.acronym} p. ${result.page}`,
+            sectionRef: result.sectionRef ?? null,
+            // Cite by section when the document has numbered sections
+            // ("BL § 6(b)"), otherwise by page ("CDM p. 1") — matching how
+            // abstractors reference documents.
+            label: result.sectionRef ? `${sourceDoc.acronym} ${result.sectionRef}` : `${sourceDoc.acronym} p. ${result.page}`,
             snippet: result.snippet ?? result.value.slice(0, 200),
             highlightRects: rects as object,
           },
