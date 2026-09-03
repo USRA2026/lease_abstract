@@ -11,6 +11,12 @@ export interface AiDocumentInput {
   acronym: string;
   title: string;
   pages: { pageNumber: number; text: string }[];
+  /**
+   * Base64-encoded raw PDF bytes, attached only when the document's pages
+   * have no usable extracted text (a scanned image with no text layer) —
+   * lets Claude read/OCR the pages directly instead of an empty context.
+   */
+  pdfBase64?: string;
 }
 
 export interface AiExtractedField {
@@ -63,5 +69,7 @@ export interface AiProvider {
     firstPageText: string;
     existingAcronyms: string[];
     abstractKind?: string;
+    /** Base64 PDF bytes, passed when firstPageText has no usable extracted text. */
+    pdfBase64?: string;
   }): Promise<{ title: string; acronym: string }>;
 }

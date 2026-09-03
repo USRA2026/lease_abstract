@@ -1,5 +1,8 @@
 import { db } from "@/lib/db";
 import { getAiProvider } from "@/lib/ai";
+import type { AiDocumentInput } from "@/lib/ai/types";
+import { isSparseText } from "@/lib/ai/sparse";
+import { getStorageDriver } from "@/lib/storage";
 import { locateSnippet } from "@/lib/pdf/locate";
 import type { LayoutLine, Rect } from "@/lib/pdf/writer";
 import { PAGE_HEIGHT, PAGE_WIDTH, MARGIN } from "@/lib/pdf/writer";
@@ -38,12 +41,21 @@ export async function askAbstract(abstractId: string, question: string, chatSess
   });
 
   const ai = getAiProvider();
-  const aiDocuments = abstract.documents.map((d) => ({
-    documentId: d.id,
-    acronym: d.acronym,
-    title: d.title,
-    pages: d.pages.map((p) => ({ pageNumber: p.pageNumber, text: p.text })),
-  }));
+  const storage = getStorageDriver();
+  const aiDocuments: AiDocumentInput[] = await Promise.all(
+    abstract.documents.map(async (d) => {
+      const pages = d.pages.map((p) => ({ pageNumber: p.pageNumber, text: p.text }));
+      const doc: AiDocumentInput = { documentId: d.id, acronym: d.acronym, title: d.title, pages };
+      if (isSparseText(pages)) {
+        try {
+          doc.pdfBase64 = (await storage.get(d.storageKey)).toString("base64");
+        } catch (err) {
+          console.warn(`Could not load raw PDF for OCR fallback (document ${d.id})`, err);
+        }
+      }
+      return doc;
+    })
+  );
 
   const history = priorMessages.map((m) => ({
     role: m.role === "USER" ? ("user" as const) : ("assistant" as const),

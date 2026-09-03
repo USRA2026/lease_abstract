@@ -4,6 +4,7 @@ import { getStorageDriver } from "@/lib/storage";
 import { extractDocumentText } from "@/lib/pdf/reader";
 import { runExtraction } from "@/lib/extraction/pipeline";
 import { getAiProvider } from "@/lib/ai";
+import { isSparseText } from "@/lib/ai/sparse";
 import { uniqueAcronym, titleFromFileName } from "@/lib/documents/naming";
 
 export const runtime = "nodejs";
@@ -44,11 +45,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       try {
         const ai = getAiProvider();
         if (ai.describeDocument) {
+          const firstPage = extracted.pages[0]?.text ?? "";
           const described = await ai.describeDocument({
             fileName: file.name,
-            firstPageText: extracted.pages[0]?.text ?? "",
+            firstPageText: firstPage,
             existingAcronyms,
             abstractKind: abstract.kind,
+            // No text layer on the opening page (a scan) — attach the full
+            // PDF so the model can read/OCR it directly instead of naming
+            // blind.
+            ...(isSparseText([{ text: firstPage }]) ? { pdfBase64: bytes.toString("base64") } : {}),
           });
           if (!requestedTitle && described.title) title = described.title;
           if (!requestedAcronym && described.acronym) acronym = described.acronym;

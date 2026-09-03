@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { getAiProvider } from "@/lib/ai";
-import type { AiTemplateFieldSpec } from "@/lib/ai/types";
+import type { AiDocumentInput, AiTemplateFieldSpec } from "@/lib/ai/types";
+import { isSparseText } from "@/lib/ai/sparse";
+import { getStorageDriver } from "@/lib/storage";
 import { locateSnippet } from "@/lib/pdf/locate";
 import type { LayoutLine, Rect } from "@/lib/pdf/writer";
 import { PAGE_HEIGHT, PAGE_WIDTH, MARGIN } from "@/lib/pdf/writer";
@@ -42,12 +44,21 @@ export async function runExtraction(abstractId: string, documentIds?: string[]) 
       ? abstract.documents.filter((d) => documentIds.includes(d.id))
       : abstract.documents;
 
-    const aiDocuments = documents.map((d) => ({
-      documentId: d.id,
-      acronym: d.acronym,
-      title: d.title,
-      pages: d.pages.map((p) => ({ pageNumber: p.pageNumber, text: p.text })),
-    }));
+    const storage = getStorageDriver();
+    const aiDocuments: AiDocumentInput[] = await Promise.all(
+      documents.map(async (d) => {
+        const pages = d.pages.map((p) => ({ pageNumber: p.pageNumber, text: p.text }));
+        const doc: AiDocumentInput = { documentId: d.id, acronym: d.acronym, title: d.title, pages };
+        if (isSparseText(pages)) {
+          try {
+            doc.pdfBase64 = (await storage.get(d.storageKey)).toString("base64");
+          } catch (err) {
+            console.warn(`Could not load raw PDF for OCR fallback (document ${d.id})`, err);
+          }
+        }
+        return doc;
+      })
+    );
 
     const fieldSpecs: (AiTemplateFieldSpec & { templateFieldId: string })[] = [];
     for (const section of abstract.template.sections) {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAiProvider } from "@/lib/ai";
+import { isSparseText } from "@/lib/ai/sparse";
+import { getStorageDriver } from "@/lib/storage";
 import { uniqueAcronym } from "@/lib/documents/naming";
 import { applyDocumentRename } from "@/lib/documents/rename";
 
@@ -31,6 +33,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: "The active AI provider doesn't support document naming" }, { status: 400 });
     }
 
+    const storage = getStorageDriver();
     const acronyms = abstract.documents.map((d) => d.acronym);
     let renamed = 0;
     const errors: string[] = [];
@@ -40,11 +43,18 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       if (!FALLBACK_ACRONYM.test(doc.acronym)) continue;
       try {
         const otherAcronyms = acronyms.filter((_, idx) => idx !== i);
+        const firstPage = doc.pages[0]?.text ?? "";
+        // No text layer on the opening page (a scan) — attach the full PDF
+        // so the model can read/OCR it directly instead of naming blind.
+        const pdfBase64 = isSparseText([{ text: firstPage }])
+          ? (await storage.get(doc.storageKey)).toString("base64")
+          : undefined;
         const described = await ai.describeDocument({
           fileName: doc.fileName,
-          firstPageText: doc.pages[0]?.text ?? "",
+          firstPageText: firstPage,
           existingAcronyms: otherAcronyms,
           abstractKind: abstract.kind,
+          pdfBase64,
         });
         const acronym = uniqueAcronym(described.acronym, otherAcronyms);
         await applyDocumentRename(doc.id, { title: described.title, acronym });
